@@ -4,28 +4,28 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingBag,
-  BarChart3,
   Package,
-  Layers,
-  Gift,
+  LogOut,
+  User as PersonStanding,
 } from "lucide-react";
 
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/admin" },
   { name: "Order", icon: ShoppingBag, path: "/admin/orders" },
- 
   { name: "Product", icon: Package, path: "/admin/products" },
-  { name: "logout", icon: Layers, path: "/admin/logout" },
-
+  { name: "Profile", icon: PersonStanding, path: "/admin/profile" },
+  { name: "Logout", icon: LogOut, path: "/login" },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="bg-[#0044ff] text-white w-64 h-0-screen flex flex-col rounded-r-3x1">
-      <div className="text-2xl font-bold px-6 py-8">eProduct</div>
+    <aside className="bg-[#0044ff] text-white w-64  h-0screen flex flex-col rounded-r-3xl shadow-lg">
+      {/* Header */}
+      <div className="text-2xl font-bold px-6 py-8">Lumera Shop</div>
 
+      {/* Menu */}
       <nav className="flex-1 px-4 space-y-2">
         {menuItems.map((item) => {
           const active = pathname === item.path;
@@ -47,6 +47,7 @@ export default function AdminSidebar() {
         })}
       </nav>
 
+      {/* Footer / Social links */}
       <div className="px-6 py-4 text-xs text-blue-100 flex gap-3 mt-auto">
         <a href="#">Facebook</a>
         <a href="#">Twitter</a>

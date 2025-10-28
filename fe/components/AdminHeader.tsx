@@ -3,7 +3,7 @@ import { Calendar, Bell, UserCircle } from "lucide-react";
 export default function AdminHeader() {
   return (
     <header className="flex items-center justify-between bg-white shadow-sm rounded-2xl px-6 py-4">
-      <h1 className="text-lg font-semibold text-gray-800">Order</h1>
+      <h1 className="text-lg font-semibold text-gray-800">Admin</h1>
 
       <div className="flex items-center gap-4">
         <div className="flex items-center bg-gray-100 px-3 py-2 rounded-lg gap-2">

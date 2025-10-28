@@ -1,0 +1,114 @@
+// File: be/prisma/schema.prisma
+
+// --- Datasource & Generator ---
+datasource db {
+  // Pastikan provider ini adalah 'postgresql'
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// MODEL UNTUK LUMERA SHOP
+// ----------------------------------------------------
+
+// Model 1: Admin
+model Admin {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique // Digunakan untuk login
+  password  String   // Harus disimpan dalam bentuk hash (bcrypt)
+  name      String
+  role      String   @default("Editor") // Misalnya: "SuperAdmin", "Editor"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model 2: User (Pembeli)
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String   // Harus disimpan dalam bentuk hash (bcrypt)
+  name      String
+  phone     String
+  orders    Order[]  // Relasi ke tabel Order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model 3: Product (Makanan Asin & Dessert)
+model Product {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  price       Float
+  // Stok harus diupdate saat order dibuat/dibatalkan
+  stock       Int       @default(0) 
+  isAvailable Boolean   @default(true) // Untuk mengontrol apakah produk tampil di FE
+  imageUrl    String?   // URL gambar produk
+  orderItems  OrderItem[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Model 4: Order (Keranjang Belanja)
+model Order {
+  id              Int         @id @default(autoincrement())
+  userId          Int
+  totalAmount     Float
+  orderDate       DateTime    @default(now())
+  // Waktu hangus (orderDate + 10 menit)
+  expirationTime  DateTime    
+  
+  // Pembayaran
+  paymentMethod   PaymentMethod // QRIS atau CASH
+  paymentStatus   PaymentStatus // PENDING, COMPLETED, CANCELED
+  transactionId   String?       // ID dari Payment Gateway (untuk QRIS)
+  
+  // Status Proses Order
+  orderStatus     OrderStatus   // PENDING, PROCESSED, DELIVERED, CANCELED
+
+  // Relasi
+  user          User          @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+// Model 5: OrderItem (Detail produk dalam order tertentu)
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  subtotal  Float
+  
+  // Relasi
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// ----------------------------------------------------
+// ENUM (TIPE DATA KHUSUS)
+// ----------------------------------------------------
+
+enum PaymentMethod {
+  QRIS
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING   // Belum dibayar / Menunggu konfirmasi admin (CASH)
+  COMPLETED // Pembayaran sukses (Otomatis QRIS / Konfirmasi Admin CASH)
+  CANCELED  // Hangus 10 menit
+}
+
+enum OrderStatus {
+  PENDING     // Order diterima, menunggu pembayaran
+  PROCESSED   // Pembayaran sukses, sedang disiapkan
+  DELIVERED   // Sudah dikirim/diambil
+  CANCELED
+}

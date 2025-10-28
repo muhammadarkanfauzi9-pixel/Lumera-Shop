@@ -191,7 +191,7 @@ export default function HomePage() {
               <p className="text-xs text-gray-500">{product.desc}</p>
               <div className="flex justify-between items-center mt-2 text-sm">
                 <span className="font-semibold text-[#8C5A4E]">
-                  Rp {product.price.toLocaleString()}
+                  Rp {product.price.toLocaleString('id-ID')}
                 </span>
                 <span className="text-xs text-gray-400">⭐ {product.rating}</span>
               </div>
