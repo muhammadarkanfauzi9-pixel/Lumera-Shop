@@ -10,7 +10,17 @@ export default function HomePage() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState<
+    {
+      id: number;
+      name: string;
+      desc: string;
+      price: number;
+      rating: number;
+      image: string;
+      category: string;
+    }[]
+  >([]);
   const [user, setUser] = useState({
     name: "Guest User",
     image: "/images/avatar.jpg",
@@ -74,6 +84,7 @@ export default function HomePage() {
     const savedProfile = localStorage.getItem("userProfile");
     if (savedProfile) {
       const parsed = JSON.parse(savedProfile);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       setUser({
         name: parsed.name || "Guest User",
         image: parsed.image || "/images/avatar.jpg",
@@ -81,11 +92,24 @@ export default function HomePage() {
     }
 
     const savedFav = localStorage.getItem("favorites");
-    if (savedFav) setFavorites(JSON.parse(savedFav));
+    if (savedFav) {
+      setFavorites(JSON.parse(savedFav));
+    }
   }, []);
 
   // ❤️ Toggle Favorite
-  const toggleFavorite = (product, e) => {
+  const toggleFavorite = (
+    product: {
+      id: number;
+      name: string;
+      desc: string;
+      price: number;
+      rating: number;
+      image: string;
+      category: string;
+    },
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     let updated;
     if (favorites.some((fav) => fav.id === product.id)) {
@@ -97,9 +121,9 @@ export default function HomePage() {
     localStorage.setItem("favorites", JSON.stringify(updated));
   };
 
-  const isFavorite = (id) => favorites.some((fav) => fav.id === id);
+  const isFavorite = (id: number) => favorites.some((fav) => fav.id === id);
 
-  const handleCardClick = (id) => {
+  const handleCardClick = (id: number) => {
     router.push(`/product/${id}`);
   };
 
@@ -109,7 +133,9 @@ export default function HomePage() {
       <header className="px-6 pt-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-[22px] font-extrabold text-[#3E2723]">Lumera</h1>
+            <h1 className="text-[22px] font-extrabold text-[#3E2723]">
+              Lumera
+            </h1>
             <p className="text-gray-500 text-sm mt-1">
               Hi, <span className="font-semibold">{user.name}</span> 👋
             </p>
@@ -156,7 +182,6 @@ export default function HomePage() {
 
       {/* Product Grid */}
       <main className="grid grid-cols-2 gap-4 px-6 mt-6 mb-10">
-
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product) => (
             <div
@@ -190,10 +215,15 @@ export default function HomePage() {
               </h3>
               <p className="text-xs text-gray-500">{product.desc}</p>
               <div className="flex justify-between items-center mt-2 text-sm">
-                <span className="font-semibold text-[#8C5A4E]">
-                  Rp {product.price.toLocaleString('id-ID')}
+                <span
+                  className="font-semibold text-[#8C5A4E]"
+                  suppressHydrationWarning
+                >
+                  Rp {product.price.toLocaleString("id-ID")}
                 </span>
-                <span className="text-xs text-gray-400">⭐ {product.rating}</span>
+                <span className="text-xs text-gray-400">
+                  ⭐ {product.rating}
+                </span>
               </div>
             </div>
           ))

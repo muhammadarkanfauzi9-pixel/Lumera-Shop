@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -20,23 +21,73 @@ import {
 import { motion } from "framer-motion";
 
 export default function AdminDashboardPage() {
-  // 📊 Statistik Harian
+  const [stats, setStats] = useState<{
+    totalRevenue?: string;
+    totalOrders?: number;
+    totalProducts?: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      const response = await fetch("http://localhost:5000/api/admin/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch stats");
+      }
+
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600">
+        Error loading stats: {error}
+      </div>
+    );
+  }
+
+  // 📊 Statistik Harian (dummy for now, can be enhanced later)
   const dailyStats = [
     {
       title: "Today's Sales",
-      value: "Rp 2.5M",
+      value: stats.totalRevenue || "Rp 0",
       icon: <DollarSign size={26} />,
       color: "bg-blue-600 text-white",
     },
     {
       title: "New Orders",
-      value: "87",
+      value: stats.totalOrders || 0,
       icon: <ShoppingBag size={26} />,
       color: "bg-green-600 text-white",
     },
     {
-      title: "New Customers",
-      value: "34",
+      title: "Total Products",
+      value: stats.totalProducts || 0,
       icon: <Users size={26} />,
       color: "bg-purple-600 text-white",
     },
@@ -48,23 +99,23 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // 📆 Statistik Bulanan
+  // 📆 Statistik Bulanan (using real data)
   const monthlyStats = [
     {
-      title: "Total Sales (Month)",
-      value: "Rp 125.5M",
+      title: "Total Revenue",
+      value: stats.totalRevenue || "Rp 0",
       icon: <TrendingUp size={26} />,
       color: "bg-blue-100 text-blue-700 border-blue-200",
     },
     {
-      title: "Products Sold",
-      value: "1,248",
+      title: "Total Orders",
+      value: stats.totalOrders || 0,
       icon: <ShoppingBag size={26} />,
       color: "bg-green-100 text-green-700 border-green-200",
     },
     {
-      title: "Active Customers",
-      value: "1,200",
+      title: "Total Products",
+      value: stats.totalProducts || 0,
       icon: <Users size={26} />,
       color: "bg-purple-100 text-purple-700 border-purple-200",
     },
@@ -76,7 +127,7 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // 📈 Data Chart Bulanan
+  // 📈 Data Chart Bulanan (placeholder, can be enhanced with real monthly data)
   const chartData = [
     { month: "Jan", sales: 240 },
     { month: "Feb", sales: 320 },
@@ -91,13 +142,13 @@ export default function AdminDashboardPage() {
   // ✨ Animasi dasar untuk kartu
   const cardAnimation = {
     hidden: { opacity: 0, y: 30 },
-    visible: (i) => ({
+    visible: (i: number) => ({
       opacity: 1,
       y: 0,
       transition: {
         delay: i * 0.1,
         duration: 0.4,
-        ease: "easeOut",
+        ease: [0.25, 0.46, 0.45, 0.94], // easeOut equivalent
       },
     }),
   };
@@ -116,7 +167,7 @@ export default function AdminDashboardPage() {
             Dashboard Overview
           </h2>
           <p className="text-gray-500 text-sm mt-1">
-            E-commerce performance summary (Daily & Monthly)
+            E-commerce performance summary (Real-time data)
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -128,7 +179,7 @@ export default function AdminDashboardPage() {
       {/* 🔹 Daily Stats */}
       <div>
         <h3 className="text-xl font-bold text-gray-800 mb-3">
-          Daily Statistics
+          Current Statistics
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {dailyStats.map((item, i) => (
@@ -155,7 +206,7 @@ export default function AdminDashboardPage() {
       {/* 🔸 Monthly Stats */}
       <div>
         <h3 className="text-xl font-bold text-gray-800 mb-3">
-          Monthly Statistics
+          Overall Statistics
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {monthlyStats.map((item, i) => (

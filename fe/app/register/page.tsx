@@ -1,10 +1,10 @@
 // app/register/page.tsx
-'use client'; // WAJIB karena menggunakan hooks (useState) dan Framer Motion
+"use client"; // WAJIB karena menggunakan hooks (useState) dan Framer Motion
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // Varian untuk animasi input (muncul berurutan)
 const itemVariants = {
@@ -16,75 +16,121 @@ const itemVariants = {
 // FUNGSI AUTH LAYOUT (Dibawa ke sini)
 // ===========================================
 interface AuthLayoutProps {
-    children: React.ReactNode;
-    title: string;
-    isLogin: boolean;
+  children: React.ReactNode;
+  title: string;
+  isLogin: boolean;
 }
 
-const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, isLogin }) => {
-    const router = useRouter();
-    return (
-        <motion.div
-            initial={{ y: "100vh", opacity: 0 }}
-            animate={{ y: "0", opacity: 1 }}
-            exit={{ y: "100vh", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 25, duration: 0.5 }}
-            className="relative w-full max-w-sm mx-auto min-h-[600px] bg-white shadow-2xl flex flex-col overflow-hidden"
-            style={{ borderRadius: '2.5rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
-        >
-            <div className="relative h-48 bg-gray-900 overflow-hidden">
-                <div className="absolute inset-0 bg-gray-900 rounded-b-[2.5rem]"></div>
-                {/* Pola di Latar Belakang (Anda harus tambahkan gaya .pattern-bg di globals.css) */}
-                <div className="absolute inset-0 pattern-bg opacity-70"></div> 
-                
-                {/* Tombol Kembali */}
-                {!isLogin && (
-                    <button 
-                        onClick={() => router.push('/login')} 
-                        className="absolute top-6 left-6 text-white text-3xl z-10 hover:text-gray-300 transition"
-                        aria-label="Kembali"
-                    >
-                        &larr;
-                    </button>
-                )}
-                
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-6xl font-extrabold flex items-center justify-center z-10">
-                    <span className="bg-white text-gray-900 px-3 py-1 rounded-md leading-none font-sans">D</span>
-                </div>
-            </div>
+const AuthLayout: React.FC<AuthLayoutProps> = ({
+  children,
+  title,
+  isLogin,
+}) => {
+  const router = useRouter();
+  return (
+    <motion.div
+      initial={{ y: "100vh", opacity: 0 }}
+      animate={{ y: "0", opacity: 1 }}
+      exit={{ y: "100vh", opacity: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 200,
+        damping: 25,
+        duration: 0.5,
+      }}
+      className="relative w-full max-w-sm mx-auto min-h-[600px] bg-white shadow-2xl flex flex-col overflow-hidden"
+      style={{
+        borderRadius: "2.5rem",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+      }}
+    >
+      <div className="relative h-48 bg-gray-900 overflow-hidden">
+        <div className="absolute inset-0 bg-gray-900 rounded-b-[2.5rem]"></div>
+        {/* Pola di Latar Belakang (Anda harus tambahkan gaya .pattern-bg di globals.css) */}
+        <div className="absolute inset-0 pattern-bg opacity-70"></div>
 
-            <div className="relative z-10 flex flex-col items-center p-8 pt-6 flex-grow">
-                <h2 className="text-3xl font-bold text-gray-900 mb-8 mt-4">{title}</h2>
-                {children}
-                <p className="mt-8 text-sm text-gray-500">
-                    {isLogin ? "Don't have any account?" : "Already have an account?"}{' '}
-                    <Link
-                        href={isLogin ? "/register" : "/login"}
-                        className="text-gray-900 font-semibold hover:underline transition-colors"
-                    >
-                        {isLogin ? "Sign Up" : "Sign In"}
-                    </Link>
-                </p>
-            </div>
-        </motion.div>
-    );
+        {/* Tombol Kembali */}
+        {!isLogin && (
+          <button
+            onClick={() => router.push("/login")}
+            className="absolute top-6 left-6 text-white text-3xl z-10 hover:text-gray-300 transition"
+            aria-label="Kembali"
+          >
+            &larr;
+          </button>
+        )}
+
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-6xl font-extrabold flex items-center justify-center z-10">
+          <span className="bg-white text-gray-900 px-3 py-1 rounded-md leading-none font-sans">
+            D
+          </span>
+        </div>
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center p-8 pt-6 flex-grow">
+        <h2 className="text-3xl font-bold text-gray-900 mb-8 mt-4">{title}</h2>
+        {children}
+        <p className="mt-8 text-sm text-gray-500">
+          {isLogin ? "Don't have any account?" : "Already have an account?"}{" "}
+          <Link
+            href={isLogin ? "/register" : "/login"}
+            className="text-gray-900 font-semibold hover:underline transition-colors"
+          >
+            {isLogin ? "Sign Up" : "Sign In"}
+          </Link>
+        </p>
+      </div>
+    </motion.div>
+  );
 };
 // ===========================================
 
 export default function RegisterPage() {
-  const [firstName, setFirstName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const router = useRouter();
+  const [firstName, setFirstName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       alert("Passwords do not match!");
       return;
     }
-    console.log('Register submitted');
-    // Logika Register di sini
+
+    try {
+      const response = await fetch("http://localhost:5000/api/users/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name:
+            firstName +
+              " " +
+              (
+                document.querySelector(
+                  'input[placeholder="Last name"]'
+                ) as HTMLInputElement
+              )?.value || "",
+          email,
+          password,
+          phone: "081234567890", // Default phone, bisa diubah nanti
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+
+      alert("Registration successful! Please login.");
+      router.push("/login");
+    } catch (err) {
+      alert((err as Error).message);
+    }
   };
 
   return (
@@ -108,7 +154,7 @@ export default function RegisterPage() {
               required
             />
           </motion.div>
-          
+
           {/* Input Last Name (Placeholder saja) */}
           <motion.div variants={itemVariants}>
             <input
@@ -130,7 +176,7 @@ export default function RegisterPage() {
               required
             />
           </motion.div>
-          
+
           {/* Input Password */}
           <motion.div variants={itemVariants}>
             <input
@@ -154,7 +200,7 @@ export default function RegisterPage() {
               required
             />
           </motion.div>
-          
+
           {/* Tombol Sign Up */}
           <motion.button
             type="submit"

@@ -1,28 +1,28 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { 
-  LogOut, 
-  CircleUser, 
-  User, 
-  Mail, 
-  Lock, 
-  Clock, 
-  Settings, 
+import {
+  LogOut,
+  CircleUser,
+  User,
+  Mail,
+  Lock,
+  Clock,
+  Settings,
   CheckCircle,
-  Loader2 
+  Loader2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-// Data profil admin dummy (GANTI DENGAN DATA ASLI ANDA)
-const adminProfileData = {
-  name: "Alexander Smith",
-  email: "alexander.smith@admin.com",
-  role: "Super Administrator",
-  status: "Aktif",
-  lastLogin: "25 Oktober 2025, 10:00 WIB",
-  adminID: "ADM-90210",
-};
+// Interface untuk data admin
+interface AdminProfile {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // Data riwayat aktivitas admin dummy (GANTI DENGAN DATA ASLI ANDA)
 const adminAccessModules = [
@@ -35,6 +35,40 @@ export default function AdminProfilePage() {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAdminProfile();
+  }, []);
+
+  const fetchAdminProfile = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("http://localhost:5000/api/admin/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch admin profile");
+      }
+
+      const data = await response.json();
+      setAdminProfile(data.admin);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     setIsLoggingOut(true);
@@ -45,40 +79,59 @@ export default function AdminProfilePage() {
     }, 1500);
   };
 
-  const getModuleIcon = (iconName) => {
+  const getModuleIcon = (iconName: string) => {
     switch (iconName) {
-      case "Analytics": return <Loader2 size={20} className="text-blue-500" />;
-      case "Users": return <User size={20} className="text-green-500" />;
-      case "Settings": return <Settings size={20} className="text-yellow-500" />;
-      default: return <CheckCircle size={20} className="text-gray-500" />;
+      case "Analytics":
+        return <Loader2 size={20} className="text-blue-500" />;
+      case "Users":
+        return <User size={20} className="text-green-500" />;
+      case "Settings":
+        return <Settings size={20} className="text-yellow-500" />;
+      default:
+        return <CheckCircle size={20} className="text-gray-500" />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-center text-red-600">Error: {error}</div>;
+  }
+
+  if (!adminProfile) {
+    return (
+      <div className="text-center text-gray-600">No profile data available</div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 sm:p-8 bg-gray-50">
       <div className="w-full max-w-5xl mx-auto">
-        
         {/* JUDUL */}
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Profil Admin</h1>
 
         {/* LAYOUT DUA KOLOM */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* KOLOM KIRI (PROFILE INFO & LOGOUT) - Lebar 1/3 */}
           <div className="lg:col-span-1 space-y-6">
-            
             {/* KARTU ATAS (NAMA DAN FOTO) */}
             <div className="bg-white shadow-lg rounded-xl p-6 flex flex-col items-center text-center">
               <div className="p-1 bg-blue-500 rounded-full mb-4">
                 <CircleUser size={72} className="text-white" />
               </div>
               <h2 className="text-xl font-bold text-gray-800">
-                {adminProfileData.name}
+                {adminProfile.name}
               </h2>
               <p className="text-gray-500 text-sm">
-                Peran: {adminProfileData.role}
+                Peran: {adminProfile.role}
               </p>
-              
+
               <button
                 onClick={() => alert("Implementasi Update Profile")}
                 className="mt-4 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
@@ -95,19 +148,29 @@ export default function AdminProfilePage() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">ID Admin:</span>
-                  <span className="font-medium text-gray-700">{adminProfileData.adminID}</span>
+                  <span className="font-medium text-gray-700">
+                    {adminProfile.id}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Email:</span>
-                  <span className="font-medium text-gray-700">{adminProfileData.email}</span>
+                  <span className="font-medium text-gray-700">
+                    {adminProfile.email}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Status Akun:</span>
-                  <span className={`font-medium ${adminProfileData.status === 'Aktif' ? 'text-green-600' : 'text-red-600'}`}>{adminProfileData.status}</span>
+                  <span className="text-gray-500">Role:</span>
+                  <span className="font-medium text-gray-700">
+                    {adminProfile.role}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Login Terakhir:</span>
-                  <span className="font-medium text-gray-700">{adminProfileData.lastLogin}</span>
+                  <span className="text-gray-500">Dibuat:</span>
+                  <span className="font-medium text-gray-700">
+                    {new Date(adminProfile.createdAt).toLocaleDateString(
+                      "id-ID"
+                    )}
+                  </span>
                 </div>
               </div>
 
@@ -121,11 +184,10 @@ export default function AdminProfilePage() {
                 <span>Logout dari Sistem</span>
               </button>
             </div>
-          </div> 
-          
+          </div>
+
           {/* KOLOM KANAN (DATA & AKTIVITAS) - Lebar 2/3 */}
           <div className="lg:col-span-2 space-y-6">
-            
             {/* KARTU STATISTIK ADMIN (MIRIP KARTU KESEHATAN) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-white shadow-lg rounded-xl p-5 text-center flex flex-col items-center">
@@ -152,16 +214,21 @@ export default function AdminProfilePage() {
               </h3>
               <div className="space-y-3">
                 {adminAccessModules.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+                  >
                     <div className="flex items-center gap-3">
                       {getModuleIcon(item.icon)}
-                      <span className="font-medium text-gray-800">{item.name}</span>
+                      <span className="font-medium text-gray-800">
+                        {item.name}
+                      </span>
                     </div>
                     <span className="text-sm text-gray-500">{item.date}</span>
                   </div>
                 ))}
               </div>
-              
+
               <button
                 onClick={() => alert("Lihat Riwayat Lengkap")}
                 className="mt-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -169,28 +236,28 @@ export default function AdminProfilePage() {
                 + Lihat Riwayat Lengkap
               </button>
             </div>
-            
+
             {/* KARTU LOGS PENTING (MIRIP PRESCRIPTIONS) */}
-             <div className="bg-white shadow-lg rounded-xl p-6">
+            <div className="bg-white shadow-lg rounded-xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">
                 Log Perubahan Penting
               </h3>
-               <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center text-gray-700">
-                    <div className="flex items-center gap-2">
-                      <Mail size={16} className="text-orange-500"/>
-                      <span className="font-medium">Email diubah</span>
-                    </div>
-                    <span className="text-gray-500">10 Oct 2025</span>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Mail size={16} className="text-orange-500" />
+                    <span className="font-medium">Email diubah</span>
                   </div>
-                  <div className="flex justify-between items-center text-gray-700">
-                    <div className="flex items-center gap-2">
-                      <Lock size={16} className="text-red-500"/>
-                      <span className="font-medium">Password direset</span>
-                    </div>
-                    <span className="text-gray-500">01 Sep 2025</span>
+                  <span className="text-gray-500">10 Oct 2025</span>
+                </div>
+                <div className="flex justify-between items-center text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Lock size={16} className="text-red-500" />
+                    <span className="font-medium">Password direset</span>
                   </div>
-               </div>
+                  <span className="text-gray-500">01 Sep 2025</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -202,7 +269,10 @@ export default function AdminProfilePage() {
           <div className="bg-white shadow-2xl rounded-xl p-8 w-full max-w-sm text-center border border-gray-100">
             {isLoggingOut ? (
               <>
-                <Loader2 size={42} className="mx-auto text-red-500 animate-spin" />
+                <Loader2
+                  size={42}
+                  className="mx-auto text-red-500 animate-spin"
+                />
                 <h2 className="text-2xl font-bold text-gray-800 mt-4">
                   Logging Out...
                 </h2>
@@ -240,7 +310,6 @@ export default function AdminProfilePage() {
           </div>
         </div>
       )}
-      
     </div>
   );
 }

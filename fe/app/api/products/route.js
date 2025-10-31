@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import path from "path";
-import fs from "fs";
 
 export async function POST(req) {
   try {
@@ -8,54 +6,58 @@ export async function POST(req) {
     const name = formData.get("name");
     const price = formData.get("price");
     const description = formData.get("description");
-    const category = formData.get("category");
+    const stock = formData.get("stock");
     const image = formData.get("image");
 
-    // Simpan file image ke folder /public/uploads
-    let fileName = null;
-    if (image && image.name) {
-      const bytes = await image.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      // buat folder kalau belum ada
-      const uploadDir = path.join(process.cwd(), "public", "uploads");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      // buat nama file unik
-      const ext = path.extname(image.name);
-      const baseName = path.basename(image.name, ext);
-      fileName = `${baseName}-${Date.now()}${ext}`;
-      const filePath = path.join(uploadDir, fileName);
-
-      // simpan file
-      fs.writeFileSync(filePath, buffer);
-    }
-
-    // Simpan data produk ke file JSON (sebagai database sederhana)
-    const newProduct = {
-      id: Date.now(),
+    // Prepare data for backend
+    const productData = {
       name,
-      price,
+      price: parseFloat(price),
       description,
-      category,
-      image: fileName ? `/uploads/${fileName}` : null,
+      stock: parseInt(stock),
     };
 
-    const dataPath = path.join(process.cwd(), "data", "products.json");
-    let products = [];
-    if (fs.existsSync(dataPath)) {
-      const file = fs.readFileSync(dataPath, "utf-8");
-      products = JSON.parse(file);
+    // Handle image upload if present
+    if (image && image.size > 0) {
+      // For now, we'll store the image URL as a placeholder
+      // In a real implementation, you'd upload to a cloud service or local storage
+      productData.imageUrl = `/uploads/${image.name}`;
     }
 
-    products.push(newProduct);
-    fs.writeFileSync(dataPath, JSON.stringify(products, null, 2));
+    // Send to backend API
+    const backendResponse = await fetch("http://localhost:5000/api/products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Add admin token if available
+        Authorization: req.headers.get("authorization") || "",
+      },
+      body: JSON.stringify(productData),
+    });
 
-    return NextResponse.json({ message: "Produk berhasil ditambahkan" });
+    if (!backendResponse.ok) {
+      const error = await backendResponse.json();
+      return NextResponse.json({ message: error.message || "Failed to add product" }, { status: backendResponse.status });
+    }
+
+    const result = await backendResponse.json();
+    return NextResponse.json({ message: "Product added successfully", product: result.product });
   } catch (error) {
     console.error("Error:", error);
-    return NextResponse.json({ message: "Gagal menambah produk" }, { status: 500 });
+    return NextResponse.json({ message: "Failed to add product" }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    const response = await fetch("http://localhost:5000/api/products");
+    if (!response.ok) {
+      throw new Error("Failed to fetch products");
+    }
+    const products = await response.json();
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    return NextResponse.json({ message: "Failed to fetch products" }, { status: 500 });
   }
 }
