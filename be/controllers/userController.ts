@@ -1,9 +1,9 @@
 // File: be/controllers/userController.ts
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 // GANTI DENGAN KUNCI RAHASIA YANG BERBEDA DARI KUNCI ADMIN!
@@ -63,19 +63,51 @@ export const loginUser = async (req: Request, res: Response) => {
         // Generate JWT Token
         const token = jwt.sign(
             { id: user.id, email: user.email }, // Payload sederhana untuk user
-            JWT_SECRET, 
+            JWT_SECRET,
             { expiresIn: '7d' } // Token berlaku 7 hari
         );
 
         // Kirim token dan data user (tanpa password)
-        const { password: _, ...userData } = user; 
-        res.status(200).json({ 
-            token, 
+        const { password: _, ...userData } = user;
+        res.status(200).json({
+            token,
             user: userData,
             message: 'Login successful'
         });
 
     } catch (error: any) {
         res.status(500).json({ message: 'Server error during login.', error: error.message });
+    }
+};
+
+// 3. Update user profile
+export const updateUserProfile = async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    const { name, email, phone } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    try {
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                name: name || undefined,
+                email: email || undefined,
+                phone: phone || undefined,
+            },
+        });
+
+        const { password: _, ...userData } = updatedUser;
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            user: userData
+        });
+    } catch (error: any) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'Email already exists.' });
+        }
+        res.status(500).json({ message: 'Failed to update profile.', error: error.message });
     }
 };

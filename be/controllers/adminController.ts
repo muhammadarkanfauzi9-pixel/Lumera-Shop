@@ -1,6 +1,5 @@
 // File: be/controllers/adminController.ts
 
-import express from 'express';
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -63,19 +62,139 @@ export const loginAdmin = async (req: Request, res: Response) => {
 
         // Generate JWT Token
         const token = jwt.sign(
-            { id: admin.id, role: admin.role, email: admin.email }, 
-            JWT_SECRET, 
+            { id: admin.id, role: admin.role, email: admin.email },
+            JWT_SECRET,
             { expiresIn: '1d' }
         );
 
-        const { password: _, ...adminData } = admin; 
-        res.status(200).json({ 
-            token, 
+        const { password: _, ...adminData } = admin;
+        res.status(200).json({
+            token,
             admin: adminData,
             message: 'Login successful'
         });
 
     } catch (error: any) {
         res.status(500).json({ message: 'Server error during login.', error: error.message });
+    }
+};
+
+// 3. Get admin statistics
+export const getAdminStats = async (req: Request, res: Response) => {
+    try {
+        // Total orders
+        const totalOrders = await prisma.order.count();
+
+        // Total revenue (from completed orders)
+        const revenueResult = await prisma.order.aggregate({
+            _sum: {
+                totalAmount: true,
+            },
+            where: {
+                paymentStatus: 'COMPLETED',
+            },
+        });
+        const totalRevenue = revenueResult._sum.totalAmount || 0;
+
+        // Total products
+        const totalProducts = await prisma.product.count();
+
+        // Recent orders (last 10)
+        const recentOrders = await prisma.order.findMany({
+            take: 10,
+            orderBy: { orderDate: 'desc' },
+            include: {
+                user: {
+                    select: { name: true, email: true },
+                },
+                items: {
+                    include: {
+                        product: true,
+                    },
+                },
+            },
+        });
+
+        // Orders by status
+        const orderStats = await prisma.order.groupBy({
+            by: ['orderStatus'],
+            _count: {
+                id: true,
+            },
+        });
+
+        res.status(200).json({
+            totalOrders,
+            totalRevenue: `Rp ${totalRevenue.toLocaleString('id-ID')}`,
+            totalProducts,
+            recentOrders,
+            orderStats,
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch admin statistics.', error: error.message });
+    }
+};
+
+// 4. Get admin profile
+export const getAdminProfile = async (req: Request, res: Response) => {
+    const adminId = (req as any).admin?.id;
+
+    if (!adminId) {
+        return res.status(401).json({ message: 'Admin not authenticated.' });
+    }
+
+    try {
+        const admin = await prisma.admin.findUnique({
+            where: { id: adminId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+
+        if (!admin) {
+            return res.status(404).json({ message: 'Admin not found.' });
+        }
+
+        res.status(200).json({
+            admin,
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch admin profile.', error: error.message });
+    }
+};
+
+// 5. Update admin profile
+export const updateAdminProfile = async (req: Request, res: Response) => {
+    const adminId = (req as any).admin?.id;
+    const { name, email } = req.body;
+
+    if (!adminId) {
+        return res.status(401).json({ message: 'Admin not authenticated.' });
+    }
+
+    try {
+        const updatedAdmin = await prisma.admin.update({
+            where: { id: adminId },
+            data: {
+                name: name || undefined,
+                email: email || undefined,
+            },
+        });
+
+        const { password: _, ...adminData } = updatedAdmin;
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            admin: adminData
+        });
+    } catch (error: any) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'Email already exists.' });
+        }
+        res.status(500).json({ message: 'Failed to update profile.', error: error.message });
     }
 };

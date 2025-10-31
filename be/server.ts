@@ -2,11 +2,14 @@
 
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client'; 
+import { PrismaClient } from '@prisma/client';
+import cron from 'node-cron';
 
 // Import routes yang sudah dan akan kita buat
-import adminRoutes from './routes/adminRoutes'; 
+import adminRoutes from './routes/adminRoutes';
 import productRoutes from './routes/productRoutes';
+import orderRoutes from './routes/orderRoutes';
+import userRoutes from './routes/userRoutes';
 
 // Inisialisasi Prisma Client
 const prisma = new PrismaClient();
@@ -32,7 +35,13 @@ app.use(express.json());
 app.use('/api/admin', adminRoutes);
 
 // Route Produk (CRUD)
-app.use('/api/products', productRoutes); 
+app.use('/api/products', productRoutes);
+
+// Route Orders (CRUD)
+app.use('/api/orders', orderRoutes);
+
+// Route Users (Login, Register, dll.)
+app.use('/api/users', userRoutes);
 
 // Endpoint Root - Verifikasi Server
 app.get('/', (req, res) => {
@@ -44,6 +53,56 @@ app.get('/', (req, res) => {
     });
 });
 
+// --- Cron Job untuk Auto-Cancel Expired Orders ---
+
+// Jalankan setiap menit untuk cek order yang expired
+cron.schedule('* * * * *', async () => {
+    try {
+        const now = new Date();
+        const expiredOrders = await prisma.order.findMany({
+            where: {
+                expirationTime: {
+                    lt: now
+                },
+                paymentStatus: 'PENDING',
+                orderStatus: 'PENDING'
+            },
+            include: {
+                items: true
+            }
+        });
+
+        for (const order of expiredOrders) {
+            // Update order status to CANCELED
+            await prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    paymentStatus: 'CANCELED',
+                    orderStatus: 'CANCELED'
+                }
+            });
+
+            // Restore stock
+            for (const item of order.items) {
+                await prisma.product.update({
+                    where: { id: item.productId },
+                    data: {
+                        stock: {
+                            increment: item.quantity
+                        }
+                    }
+                });
+            }
+        }
+
+        if (expiredOrders.length > 0) {
+            console.log(`Auto-canceled ${expiredOrders.length} expired orders`);
+        }
+    } catch (error) {
+        console.error('Error in cron job:', error);
+    }
+});
+
 // --- Server Startup ---
 
 app.listen(PORT, async () => {
@@ -52,10 +111,11 @@ app.listen(PORT, async () => {
         await prisma.$connect();
         console.log('✅ Database connected successfully!');
         console.log(`🚀 Server is running on http://localhost:${PORT}`);
+        console.log('⏰ Cron job for order expiration started');
     } catch (error) {
         console.error('❌ Failed to connect to database or start server:', error);
         // Hentikan proses jika gagal terhubung ke DB
-        process.exit(1); 
+        process.exit(1);
     }
 });
 
