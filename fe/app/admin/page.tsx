@@ -25,6 +25,10 @@ export default function AdminDashboardPage() {
     totalRevenue?: string;
     totalOrders?: number;
     totalProducts?: number;
+    todaySales?: string;
+    newOrdersToday?: number;
+    avgRating?: number;
+    monthlySales?: { month: string; sales: number }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,29 +75,29 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // 📊 Statistik Harian (dummy for now, can be enhanced later)
+  // 📊 Statistik Harian (real-time data)
   const dailyStats = [
     {
       title: "Today's Sales",
-      value: stats.totalRevenue || "Rp 0",
+      value: stats?.todaySales || "Rp 0",
       icon: <DollarSign size={26} />,
       color: "bg-blue-600 text-white",
     },
     {
-      title: "New Orders",
-      value: stats.totalOrders || 0,
+      title: "New Orders Today",
+      value: stats?.newOrdersToday || 0,
       icon: <ShoppingBag size={26} />,
       color: "bg-green-600 text-white",
     },
     {
       title: "Total Products",
-      value: stats.totalProducts || 0,
+      value: stats?.totalProducts || 0,
       icon: <Users size={26} />,
       color: "bg-purple-600 text-white",
     },
     {
       title: "Avg Rating",
-      value: "4.9 ★",
+      value: `${stats?.avgRating || 4.9} ★`,
       icon: <Star size={26} />,
       color: "bg-yellow-500 text-white",
     },
@@ -103,19 +107,19 @@ export default function AdminDashboardPage() {
   const monthlyStats = [
     {
       title: "Total Revenue",
-      value: stats.totalRevenue || "Rp 0",
+      value: stats?.totalRevenue || "Rp 0",
       icon: <TrendingUp size={26} />,
       color: "bg-blue-100 text-blue-700 border-blue-200",
     },
     {
       title: "Total Orders",
-      value: stats.totalOrders || 0,
+      value: stats?.totalOrders || 0,
       icon: <ShoppingBag size={26} />,
       color: "bg-green-100 text-green-700 border-green-200",
     },
     {
       title: "Total Products",
-      value: stats.totalProducts || 0,
+      value: stats?.totalProducts || 0,
       icon: <Users size={26} />,
       color: "bg-purple-100 text-purple-700 border-purple-200",
     },
@@ -127,30 +131,29 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // 📈 Data Chart Bulanan (placeholder, can be enhanced with real monthly data)
-  const chartData = [
-    { month: "Jan", sales: 240 },
-    { month: "Feb", sales: 320 },
-    { month: "Mar", sales: 280 },
-    { month: "Apr", sales: 400 },
-    { month: "May", sales: 380 },
-    { month: "Jun", sales: 500 },
-    { month: "Jul", sales: 460 },
-    { month: "Aug", sales: 530 },
+  // 📈 Data Chart Bulanan (real-time data from API)
+  const chartData = stats?.monthlySales || [
+    { month: "Jan", sales: 0 },
+    { month: "Feb", sales: 0 },
+    { month: "Mar", sales: 0 },
+    { month: "Apr", sales: 0 },
+    { month: "May", sales: 0 },
+    { month: "Jun", sales: 0 },
+    { month: "Jul", sales: 0 },
+    { month: "Aug", sales: 0 },
   ];
 
   // ✨ Animasi dasar untuk kartu
   const cardAnimation = {
     hidden: { opacity: 0, y: 30 },
-    visible: (i: number) => ({
+    visible: {
       opacity: 1,
       y: 0,
       transition: {
-        delay: i * 0.1,
         duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94], // easeOut equivalent
+        ease: [0.25, 0.46, 0.45, 0.94],
       },
-    }),
+    },
   };
 
   return (
@@ -185,7 +188,6 @@ export default function AdminDashboardPage() {
           {dailyStats.map((item, i) => (
             <motion.div
               key={i}
-              custom={i}
               variants={cardAnimation}
               initial="hidden"
               animate="visible"
@@ -212,7 +214,6 @@ export default function AdminDashboardPage() {
           {monthlyStats.map((item, i) => (
             <motion.div
               key={i}
-              custom={i}
               variants={cardAnimation}
               initial="hidden"
               animate="visible"
@@ -251,7 +252,14 @@ export default function AdminDashboardPage() {
             <TrendingUp size={18} className="text-blue-600" />
             Monthly Sales Overview
           </h3>
-          <p className="text-sm text-gray-500">January – August 2025</p>
+          <p className="text-sm text-gray-500">
+            {new Date().toLocaleString("default", { month: "long" })}{" "}
+            {new Date().getFullYear()} -{" "}
+            {new Date(
+              new Date().setMonth(new Date().getMonth() - 7)
+            ).toLocaleString("default", { month: "long" })}{" "}
+            {new Date().getFullYear()}
+          </p>
         </div>
 
         <div className="h-72">

@@ -1,11 +1,11 @@
-// app/register/page.tsx
-"use client"; // WAJIB karena menggunakan hooks (useState) dan Framer Motion
+// app/admin/login/page.tsx
+"use client";
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Coffee, Cookie, Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 // Varian untuk animasi input (muncul berurutan)
 const itemVariants = {
@@ -112,10 +112,10 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
               Lumera
             </h1>
             <p className="text-2xl text-[#8B4513] font-medium italic mb-2">
-              Lebih dari Sekedar Rasa
+              Admin Panel
             </p>
             <p className="text-lg text-[#654321]/70 font-light">
-              More than just taste
+              Management Dashboard
             </p>
           </motion.div>
         </div>
@@ -152,7 +152,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
               transition={{ duration: 0.5, delay: 1 }}
               className="text-[#8B4513] text-xl italic font-light"
             >
-              Hello, Foodie! Lumera: Lebih dari Sekedar Rasa.
+              Admin Access Only
             </motion.p>
           </div>
 
@@ -163,14 +163,16 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1.2 }}
-            className="mt-8 text-center text-[#ccc0b0] text-sm"
+            className="mt-8 text-center text-[#654321]/60 text-sm"
           >
-            {isLogin ? "New to Lumera?" : "Already part of our family?"}{" "}
+            {isLogin
+              ? "Back to customer login?"
+              : "Already part of our family?"}{" "}
             <Link
-              href={isLogin ? "/register" : "/login"}
-              className="text-[#af8161] font-medium hover:text-[#856646] transition-colors"
+              href={isLogin ? "/login" : "/admin/login"}
+              className="text-[#8B4513] font-medium hover:text-[#654321] transition-colors"
             >
-              {isLogin ? "Create account" : "Sign in here"}
+              {isLogin ? "Customer Login" : "Sign in here"}
             </Link>
           </motion.p>
         </div>
@@ -180,50 +182,53 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
 };
 // ===========================================
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const [firstName, setFirstName] = useState("");
+export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [phone, setPhone] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      alert("Passwords do not match!");
-      return;
-    }
+    setLoading(true);
+    setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      const response = await fetch(`http://localhost:5000/api/admin/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: firstName,
-          email,
-          password,
-          phone,
-        }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Registration failed");
+        throw new Error(data.message || "Login failed");
       }
 
-      alert("Registration successful! Please login.");
-      router.push("/login");
+      // Store token
+      localStorage.setItem("adminToken", data.token);
+
+      // Store user data if available
+      if (data.user) {
+        localStorage.setItem("admin", JSON.stringify(data.user));
+      }
+
+      // Redirect to admin dashboard
+      router.push("/admin");
     } catch (err) {
-      alert((err as Error).message);
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <AuthLayout title="Create Account" isLogin={false}>
+    <AuthLayout title="Admin Login" isLogin={true}>
       <motion.form
         onSubmit={handleSubmit}
         className="w-full space-y-6"
@@ -284,106 +289,75 @@ export default function RegisterPage() {
 
         {/* Input Fields */}
         <div className="space-y-4">
-          {/* Name */}
-          <motion.div variants={itemVariants}>
-            <input
-              type="text"
-              placeholder="Full Name"
-              className="w-full px-4 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              required
-            />
-          </motion.div>
-
           {/* Email */}
           <motion.div variants={itemVariants}>
-            <input
-              type="email"
-              placeholder="Email Address"
-              className="w-full px-4 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8B4513]/60" />
+              <input
+                type="email"
+                placeholder="Admin Email Address"
+                className="w-full pl-12 pr-4 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
           </motion.div>
 
           {/* Password */}
           <motion.div variants={itemVariants}>
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full px-4 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </motion.div>
-
-          {/* Phone */}
-          <motion.div variants={itemVariants}>
-            <input
-              type="tel"
-              placeholder="Phone Number"
-              className="w-full px-4 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </motion.div>
-
-          {/* Confirm Password */}
-          <motion.div variants={itemVariants}>
-            <input
-              type="password"
-              placeholder="Repeat Password"
-              className="w-full px-4 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8B4513]/60" />
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Admin Password"
+                className="w-full pl-12 pr-12 py-3 bg-[#F4E4BC]/30 border border-[#E6D7C3] rounded-xl focus:outline-none focus:border-[#8B4513] focus:bg-white transition-all text-[#654321] placeholder-[#8B4513]/60 text-base"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8B4513]/60 hover:text-[#654321] transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </motion.div>
         </div>
 
-        {/* Terms Checkbox */}
-        <motion.div variants={itemVariants} className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="terms"
-            className="mt-1 w-4 h-4 text-[#8B4513] bg-[#F4E4BC]/30 border-[#E6D7C3] rounded focus:ring-[#8B4513] focus:ring-2"
-            required
-          />
-          <label
-            htmlFor="terms"
-            className="text-sm text-[#654321]/80 leading-relaxed"
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            variants={itemVariants}
+            className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-xl border border-red-200"
           >
-            I agree to the{" "}
-            <Link
-              href="#"
-              className="text-[#8B4513] font-medium hover:underline"
-            >
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link
-              href="#"
-              className="text-[#8B4513] font-medium hover:underline"
-            >
-              Privacy Policy
-            </Link>
-          </label>
-        </motion.div>
+            {error}
+          </motion.div>
+        )}
 
-        {/* Sign Up Button */}
+        {/* Sign In Button */}
         <motion.button
           type="submit"
+          disabled={loading}
           variants={itemVariants}
           whileHover={{ scale: 1.02, y: -1 }}
           whileTap={{ scale: 0.98 }}
-          className="w-full bg-[#8B4513] text-white py-4 px-6 rounded-2xl font-semibold text-base hover:bg-[#654321] transition-all shadow-lg hover:shadow-xl"
+          className="w-full bg-[#8B4513] text-white py-4 px-6 rounded-2xl font-semibold text-base hover:bg-[#654321] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Sign Up
+          {loading ? "Authenticating..." : "Admin Sign In"}
         </motion.button>
+
+        {/* Demo Credentials */}
+        <motion.div
+          variants={itemVariants}
+          className="text-center text-xs text-[#654321]/60 bg-[#F4E4BC]/20 p-3 rounded-xl"
+        >
+          <p className="font-medium mb-1">Demo Admin:</p>
+          <p>Email: admin@lumera.com</p>
+          <p>Password: admin123</p>
+        </motion.div>
       </motion.form>
     </AuthLayout>
   );

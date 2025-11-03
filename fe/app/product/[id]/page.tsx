@@ -4,59 +4,79 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Star } from "lucide-react";
-import { useState, useMemo } from "react";
-
-const products = [
-  {
-    id: 1,
-    name: "Cheeseburger",
-    desc: "Kenikmatan klasik yang tak pernah gagal: cheeseburger kami dibuat dengan daging sapi premium yang juicy, dilapisi lelehan keju cheddar yang gurih, disajikan di dalam roti bun lembut dengan sayuran segar. Rasanya sempurna dalam setiap gigitan.",
-    price: 8.24,
-    rating: 4.9,
-    time: "26 mins",
-    image: "/images/burgers/burger.png",
-  },
-  {
-    id: 2,
-    name: "Donat Coklat",
-    desc: "Donat lembut dengan lapisan coklat tebal yang lumer di mulut. Paduan rasa manis dan gurih yang memanjakan lidah di setiap gigitan.",
-    price: 4.99,
-    rating: 4.8,
-    time: "18 mins",
-    image: "/images/cakes/donat.png",
-  },
-  {
-    id: 3,
-    name: "Cake Stroberi",
-    desc: "Kue lembut dengan krim stroberi segar di atasnya, manisnya pas dan tampilannya menggoda selera.",
-    price: 6.75,
-    rating: 4.7,
-    time: "22 mins",
-    image: "/images/cakes/cake2.png",
-  },
-  {
-    id: 4,
-    name: "Ice Cream Vanila",
-    desc: "Es krim lembut rasa vanila klasik, disajikan dengan topping karamel manis yang bikin nagih.",
-    price: 3.99,
-    rating: 4.6,
-    time: "15 mins",
-    image: "/images/icecreams/ice cream.png",
-  },
-];
+import { useState, useMemo, useEffect } from "react";
 
 export default function ProductDetail() {
   const router = useRouter();
   const { id } = useParams();
   const [spicy, setSpicy] = useState(1);
   const [portion, setPortion] = useState(1);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const product = products.find((p) => p.id === Number(id));
-  if (!product)
-    return <p className="text-center mt-20">Produk tidak ditemukan 😢</p>;
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${id}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch product");
+        }
+        const data = await response.json();
+        setProduct(data);
+      } catch (err) {
+        setError(err.message);
+        console.error("Error fetching product:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7B4540] mx-auto mb-4"></div>
+          <p className="text-[#7B4540]">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-[#7B4540] mb-4">Product not found</p>
+          <p className="text-red-500 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   // 🔥 Total harga otomatis berdasarkan portion
-  const totalPrice = useMemo(() => product.price * portion, [product.price, portion]);
+  const totalPrice = useMemo(
+    () => product.price * portion,
+    [product.price, portion]
+  );
+
+  const handleOrderNow = () => {
+    const user = localStorage.getItem("user");
+    if (!user) {
+      router.push("/login");
+    } else {
+      router.push(
+        `/payment?name=${encodeURIComponent(product.name)}&price=${
+          product.price
+        }&portion=${portion}`
+      );
+    }
+  };
 
   // ✨ Variants animasi
   const fadeLeft = {
@@ -100,7 +120,7 @@ export default function ProductDetail() {
         className="flex justify-center"
       >
         <Image
-          src={product.image}
+          src={product.imageUrl || "/images/burgers/burger.png"}
           alt={product.name}
           width={260}
           height={260}
@@ -115,11 +135,11 @@ export default function ProductDetail() {
         </h2>
         <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
           <Star size={16} className="text-yellow-500 fill-yellow-500" />
-          <span>{product.rating}</span>
-          <span>• {product.time}</span>
+          <span>4.5</span>
+          <span>• 26 mins</span>
         </div>
         <p className="mt-3 text-gray-700 leading-relaxed text-[15px]">
-          {product.desc}
+          {product.description || "No description available"}
         </p>
       </motion.div>
 
@@ -175,19 +195,14 @@ export default function ProductDetail() {
         className="flex justify-between items-center mt-8"
       >
         <div className="bg-[#7B4540] text-white px-5 py-3 rounded-2xl shadow-md text-lg font-semibold">
-          ${totalPrice.toFixed(2)}
+          Rp {totalPrice.toLocaleString()}
         </div>
         <button
-  onClick={() =>
-    router.push(
-      `/payment?name=${encodeURIComponent(product.name)}&price=${product.price}&portion=${portion}`
-    )
-  }
-  className="bg-[#7B4540] text-white px-8 py-3 rounded-2xl font-semibold shadow-md hover:opacity-90"
->
-  ORDER NOW
-</button>
-
+          onClick={handleOrderNow}
+          className="bg-[#7B4540] text-white px-8 py-3 rounded-2xl font-semibold shadow-md hover:opacity-90"
+        >
+          ORDER NOW
+        </button>
       </motion.div>
     </motion.div>
   );

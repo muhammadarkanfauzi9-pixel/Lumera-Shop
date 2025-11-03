@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 
@@ -49,6 +49,14 @@ export default function PaymentPage() {
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
+
+  // Check if user is logged in
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    if (!user) {
+      router.push("/login");
+    }
+  }, [router]);
 
   return (
     <div className="relative min-h-screen bg-white px-6 py-6 font-sans overflow-y-auto pb-24">
@@ -169,8 +177,17 @@ export default function PaymentPage() {
               {/* COD */}
               {method === "cod" && (
                 <div className="space-y-3 text-gray-700">
-                  <OrderDetails subtotal={subtotal} taxes={taxes} delivery={delivery} total={total} />
-                  <PaymentCard title="COD" subtitle="Bayar di tempat" image="/images/cards/mastercard.png" />
+                  <OrderDetails
+                    subtotal={subtotal}
+                    taxes={taxes}
+                    delivery={delivery}
+                    total={total}
+                  />
+                  <PaymentCard
+                    title="COD"
+                    subtitle="Bayar di tempat"
+                    image="/images/cards/mastercard.png"
+                  />
                   <button
                     onClick={handleContactAdmin}
                     className="mt-6 w-full bg-[#7B4540] text-white py-3 rounded-xl font-semibold shadow-md hover:bg-[#633732] transition"
@@ -251,8 +268,8 @@ export default function PaymentPage() {
                 Pembayaran Berhasil!
               </h2>
               <p className="text-gray-500 text-sm mb-6 text-center">
-                Terima kasih, pembayaran Anda sudah diterima.  
-                Silakan hubungi admin untuk konfirmasi pesanan.
+                Terima kasih, pembayaran Anda sudah diterima. Silakan hubungi
+                admin untuk konfirmasi pesanan.
               </p>
               <button
                 onClick={handleContactAdmin}
@@ -282,15 +299,27 @@ function PaymentOption({ selected, onClick, title, subtitle, image }) {
       <div className="flex items-center gap-3">
         <Image src={image} alt={title} width={40} height={40} />
         <div>
-          <p className={`text-[14px] font-medium ${selected ? "text-white" : "text-gray-800"}`}>
+          <p
+            className={`text-[14px] font-medium ${
+              selected ? "text-white" : "text-gray-800"
+            }`}
+          >
             {title}
           </p>
-          <p className={`text-xs ${selected ? "text-gray-300" : "text-gray-500"}`}>{subtitle}</p>
+          <p
+            className={`text-xs ${
+              selected ? "text-gray-300" : "text-gray-500"
+            }`}
+          >
+            {subtitle}
+          </p>
         </div>
       </div>
       <div
         className={`w-5 h-5 rounded-full border-[2px] flex items-center justify-center ${
-          selected ? "border-white bg-[#7B4540]" : "border-gray-400 bg-transparent"
+          selected
+            ? "border-white bg-[#7B4540]"
+            : "border-gray-400 bg-transparent"
         }`}
       >
         {selected && <div className="w-2.5 h-2.5 bg-white rounded-full" />}

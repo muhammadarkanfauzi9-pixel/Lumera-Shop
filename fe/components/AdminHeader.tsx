@@ -1,6 +1,39 @@
 import { Calendar, Bell, UserCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function AdminHeader() {
+  const [adminProfile, setAdminProfile] = useState<{
+    name: string;
+    email: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchAdminProfile = async () => {
+      try {
+        const token = localStorage.getItem("adminToken");
+        if (!token) return;
+
+        const response = await fetch(
+          "http://localhost:5000/api/admin/profile",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setAdminProfile(data.admin);
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin profile:", error);
+      }
+    };
+
+    fetchAdminProfile();
+  }, []);
+
   return (
     <header className="flex items-center justify-between bg-white shadow-sm rounded-2xl px-6 py-4">
       <h1 className="text-lg font-semibold text-gray-800">Admin</h1>
@@ -11,7 +44,17 @@ export default function AdminHeader() {
           <span className="text-sm text-gray-600">31 Jul - 03 Aug 2020</span>
         </div>
         <Bell className="text-gray-500" />
-        <UserCircle size={28} className="text-gray-600" />
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <p className="text-sm font-medium text-gray-800">
+              {adminProfile?.name || "Admin"}
+            </p>
+            <p className="text-xs text-gray-500">
+              {adminProfile?.email || "admin@lumera.com"}
+            </p>
+          </div>
+          <UserCircle size={32} className="text-gray-600" />
+        </div>
       </div>
     </header>
   );

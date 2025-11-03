@@ -3,37 +3,64 @@
 import { Edit, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  imageUrl: string;
+}
 
 export default function AdminProductsPage() {
-  const products = [
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      image:
-        "https://images.unsplash.com/photo-1583225151621-3fe5b8b1b4d5?w=200&h=200&fit=crop",
-      price: 450000,
-      stock: 32,
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      image:
-        "https://images.unsplash.com/photo-1580910051074-1c7a50e85a7b?w=200&h=200&fit=crop",
-      price: 1200000,
-      stock: 14,
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Bluetooth Speaker",
-      image:
-        "https://images.unsplash.com/photo-1606813902775-2c59d52c3d9f?w=200&h=200&fit=crop",
-      price: 600000,
-      stock: 0,
-      status: "Out of Stock",
-    },
-  ];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch("/api/products");
+      if (!response.ok) throw new Error("Failed to fetch products");
+      const data = await response.json();
+      setProducts(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        alert("Admin authentication required. Please login again.");
+        return;
+      }
+      const response = await fetch(`/api/products/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete product");
+      alert("Product deleted successfully");
+      fetchProducts(); // Refresh the list
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  if (loading) return <div className="p-6">Loading products...</div>;
+  if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
 
   return (
     <div className="p-6 space-y-6">
@@ -68,7 +95,7 @@ export default function AdminProductsPage() {
                 <td className="p-4">
                   <div className="w-12 h-12 relative rounded-lg overflow-hidden">
                     <Image
-                      src={item.image}
+                      src={item.imageUrl || "/images/placeholder.png"}
                       alt={item.name}
                       fill
                       className="object-cover"
@@ -83,19 +110,24 @@ export default function AdminProductsPage() {
                 <td className="p-4">
                   <span
                     className={`px-3 py-1 text-xs font-medium rounded-full ${
-                      item.status === "Active"
+                      item.stock > 0
                         ? "bg-green-100 text-green-600"
                         : "bg-red-100 text-red-600"
                     }`}
                   >
-                    {item.status}
+                    {item.stock > 0 ? "Active" : "Out of Stock"}
                   </span>
                 </td>
                 <td className="p-4 text-right flex justify-end gap-3">
-                  <button className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
-                    <Edit size={16} />
-                  </button>
-                  <button className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">
+                  <Link href={`/admin/products/${item.id}/edit`}>
+                    <button className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
+                      <Edit size={16} />
+                    </button>
+                  </Link>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                  >
                     <Trash2 size={16} />
                   </button>
                 </td>

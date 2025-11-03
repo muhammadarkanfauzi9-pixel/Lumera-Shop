@@ -3,7 +3,14 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Edit3, LogOut, ChevronRight, Lock, ArrowLeft, Camera } from "lucide-react";
+import {
+  Edit3,
+  LogOut,
+  ChevronRight,
+  Lock,
+  ArrowLeft,
+  Camera,
+} from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -18,20 +25,21 @@ export default function ProfilePage() {
 
   // ✅ Ambil data dari localStorage saat halaman dibuka
   useEffect(() => {
-    const savedProfile = localStorage.getItem("userProfile");
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
-    } else {
-      // isi default kalau belum pernah disimpan
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      const userData = JSON.parse(savedUser);
       setProfile({
-        name: "Alfian ganteng",
-        email: "alfian@gmail.com",
-        address: "Jl. Buni Kaji, Kec. Lowokwaru, Malang, Jatim",
-        password: "123456",
+        name: userData.name || "",
+        email: userData.email || "",
+        address: "", // Address not stored in user data, can be added later
+        password: "", // Password should not be stored in plain text
         image: "/images/profile/avatar.png",
       });
+    } else {
+      // Redirect to login if no user data
+      router.push("/login");
     }
-  }, []);
+  }, [router]);
 
   // ✅ back aman
   const handleBack = () => {
@@ -40,7 +48,7 @@ export default function ProfilePage() {
   };
 
   // ✅ ubah foto
-  const handleImageChange = (e) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const imageURL = URL.createObjectURL(file);
@@ -59,7 +67,8 @@ export default function ProfilePage() {
 
   // ✅ logout (hapus data dari localStorage)
   const handleLogout = () => {
-    localStorage.removeItem("userProfile");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userToken");
     router.push("/login");
   };
 
@@ -77,10 +86,20 @@ export default function ProfilePage() {
 
         {/* dekorasi */}
         <div className="absolute left-3 top-3 z-10 pointer-events-none">
-          <Image src="/images/cakes/cake2.png" alt="Cake" width={90} height={90} />
+          <Image
+            src="/images/cakes/cake2.png"
+            alt="Cake"
+            width={90}
+            height={90}
+          />
         </div>
         <div className="absolute right-3 top-3 z-10 pointer-events-none">
-          <Image src="/images/icecreams/ice cream.png" alt="Ice Cream" width={90} height={90} />
+          <Image
+            src="/images/icecreams/ice cream.png"
+            alt="Ice Cream"
+            width={90}
+            height={90}
+          />
         </div>
 
         {/* avatar */}
@@ -117,23 +136,29 @@ export default function ProfilePage() {
       {/* ⚪ FORM */}
       <div className="mt-20 w-[88%] max-w-sm bg-white space-y-5">
         {[
-          { label: "Name", key: "name", type: "text" },
-          { label: "Email", key: "email", type: "email" },
-          { label: "Delivery address", key: "address", type: "text" },
+          { label: "Name", key: "name" as keyof typeof profile, type: "text" },
+          {
+            label: "Email",
+            key: "email" as keyof typeof profile,
+            type: "email",
+          },
+          {
+            label: "Delivery address",
+            key: "address" as keyof typeof profile,
+            type: "text",
+          },
         ].map((field) => (
           <div key={field.key}>
             <label className="block text-sm text-gray-500 mb-1">
               {field.label}
             </label>
-           <input
-  type={field.type}
-  disabled={!isEditing}
-  value={profile[field.key] ?? ""}  
-  onChange={(e) =>
-    setProfile((prev) => ({ ...prev, [field.key]: e.target.value }))
-  }
-
-
+            <input
+              type={field.type}
+              disabled={!isEditing}
+              value={profile[field.key] ?? ""}
+              onChange={(e) =>
+                setProfile((prev) => ({ ...prev, [field.key]: e.target.value }))
+              }
               className="w-full border border-gray-300 rounded-full px-4 py-2.5 text-sm text-gray-800 focus:border-[#5B2D24] focus:outline-none disabled:bg-gray-50"
             />
           </div>
@@ -143,7 +168,10 @@ export default function ProfilePage() {
         <div>
           <label className="block text-sm text-gray-500 mb-1">Password</label>
           <div className="relative">
-            <Lock size={16} className="absolute right-4 top-3.5 text-gray-500" />
+            <Lock
+              size={16}
+              className="absolute right-4 top-3.5 text-gray-500"
+            />
             <input
               type="password"
               disabled={!isEditing}

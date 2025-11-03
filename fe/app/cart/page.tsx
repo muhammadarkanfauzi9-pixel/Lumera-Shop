@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Minus, ArrowLeft, Search } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function CartPage() {
+  const router = useRouter();
   const [spicy, setSpicy] = useState(3);
   const [portion, setPortion] = useState(1);
   const pricePerItem = 8.65;
@@ -18,6 +20,14 @@ export default function CartPage() {
   ];
 
   const total = (pricePerItem * portion).toFixed(2);
+
+  // Check if user is logged in
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    if (!user) {
+      router.push("/login");
+    }
+  }, [router]);
 
   return (
     <div className="flex flex-col items-center px-6 py-4 min-h-screen bg-[#fafafa] text-gray-800 overflow-hidden">
