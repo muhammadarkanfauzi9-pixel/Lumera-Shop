@@ -21,7 +21,10 @@ export interface AuthRequest extends Request {
 }
 
 // GANTI DENGAN KUNCI RAHASIA YANG SAMA DENGAN adminController.ts!
-const JWT_SECRET = 'YOUR_SUPER_SECRET_KEY';
+const JWT_SECRET = 'lumera_admin_secret_key_2024';
+
+// GANTI DENGAN KUNCI RAHASIA YANG SAMA DENGAN userController.ts!
+const USER_JWT_SECRET = 'lumera_user_secret_key_2024';
 
 // Middleware 1: Memverifikasi Token JWT untuk Admin
 export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
@@ -58,7 +61,7 @@ export const verifyUserToken = (req: Request, res: Response, next: NextFunction)
 
     try {
         // Verifikasi dan cast ke tipe UserPayload
-        const decoded = jwt.verify(token, 'YOUR_SUPER_SECRET_USER_KEY') as unknown as UserPayload;
+        const decoded = jwt.verify(token, USER_JWT_SECRET) as unknown as UserPayload;
 
         // Tambahkan data user ke request object
         (req as AuthRequest).user = decoded;

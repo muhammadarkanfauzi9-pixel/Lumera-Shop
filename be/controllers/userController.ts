@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 // GANTI DENGAN KUNCI RAHASIA YANG BERBEDA DARI KUNCI ADMIN!
-const JWT_SECRET = 'YOUR_SUPER_SECRET_USER_KEY'; 
+const JWT_SECRET = 'lumera_user_secret_key_2024';
 
 // 1. Fungsi untuk Pendaftaran Pembeli (User Registration)
 export const registerUser = async (req: Request, res: Response) => {

@@ -10,6 +10,7 @@ import adminRoutes from './routes/adminRoutes';
 import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import userRoutes from './routes/userRoutes';
+import authRoutes from './routes/authRoutes';
 
 // Inisialisasi Prisma Client
 const prisma = new PrismaClient();
@@ -42,6 +43,9 @@ app.use('/api/orders', orderRoutes);
 
 // Route Users (Login, Register, dll.)
 app.use('/api/users', userRoutes);
+
+// Route Auth (Unified Login)
+app.use('/api/auth', authRoutes);
 
 // Endpoint Root - Verifikasi Server
 app.get('/', (req, res) => {

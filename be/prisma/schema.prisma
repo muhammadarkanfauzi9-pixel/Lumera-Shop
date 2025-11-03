@@ -17,13 +17,34 @@ generator client {
 
 // Model 1: Admin
 model Admin {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique // Digunakan untuk login
-  password  String   // Harus disimpan dalam bentuk hash (bcrypt)
-  name      String
-  role      String   @default("Editor") // Misalnya: "SuperAdmin", "Editor"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                Int               @id @default(autoincrement())
+  email             String            @unique // Digunakan untuk login
+  password          String            // Harus disimpan dalam bentuk hash (bcrypt)
+  name              String
+  role              String            @default("Editor") // Misalnya: "SuperAdmin", "Editor"
+  profileImageUrl   String?           // URL foto profil admin
+  passwordChanges   Int               @default(0) // Jumlah perubahan password
+  lastPasswordChange DateTime?        // Waktu terakhir ganti password
+  averageActiveTime Float             @default(0) // Rata-rata waktu aktif dalam jam
+  activeModules     Int               @default(0) // Jumlah modul aktif yang diakses
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  adminLogs         AdminLog[]        // Relasi ke log aktivitas
+}
+
+// Model untuk log aktivitas admin
+model AdminLog {
+  id          Int       @id @default(autoincrement())
+  adminId     Int
+  action      String    // Jenis aksi (login, logout, update_profile, dll)
+  module      String?   // Modul yang diakses
+  description String    // Deskripsi perubahan
+  ipAddress   String?   // IP address admin
+  userAgent   String?   // Browser/device info
+  createdAt   DateTime  @default(now())
+
+  // Relasi
+  admin       Admin     @relation(fields: [adminId], references: [id])
 }
 
 // Model 2: User (Pembeli)
