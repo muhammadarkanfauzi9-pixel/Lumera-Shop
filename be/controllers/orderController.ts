@@ -5,7 +5,16 @@ const prisma = new PrismaClient();
 
 // Helper function to generate WhatsApp message
 const generateWhatsAppMessage = (order: any) => {
-    const message = `Halo! Terima kasih telah memesan di Lumera Shop.\n\nDetail Pesanan:\nID Order: ${order.id}\nTotal: Rp ${order.totalAmount.toLocaleString('id-ID')}\nMetode Pembayaran: ${order.paymentMethod}\nStatus: ${order.paymentStatus}\n\nSilakan konfirmasi pembayaran jika belum. Terima kasih!`;
+    // Build order items details
+    let itemsText = '';
+    if (order.items && order.items.length > 0) {
+        itemsText = '\n\nDetail Item:\n';
+        order.items.forEach((item: any, index: number) => {
+            itemsText += `${index + 1}. ${item.product.name}\n   Jumlah: ${item.quantity} x Rp ${item.product.price.toLocaleString('id-ID')} = Rp ${(item.quantity * item.product.price).toLocaleString('id-ID')}\n`;
+        });
+    }
+
+    const message = `Halo! Terima kasih telah memesan di Lumera Shop.\n\nDetail Pesanan:\nID Order: ${order.id}${itemsText}\nTotal: Rp ${order.totalAmount.toLocaleString('id-ID')}\nMetode Pembayaran: ${order.paymentMethod}\nStatus: ${order.paymentStatus}\n\nSilakan konfirmasi pembayaran jika belum. Terima kasih!`;
     return encodeURIComponent(message);
 };
 
@@ -91,7 +100,7 @@ export const createOrder = async (req: Request, res: Response) => {
         }
 
         // Generate WhatsApp link for the order
-        const whatsappUrl = `https://wa.me/?text=${generateWhatsAppMessage(order)}`; // Dynamic WhatsApp number
+        const whatsappUrl = `https://wa.me/6281239450638?text=${generateWhatsAppMessage(order)}`; // Dynamic WhatsApp number
 
         res.status(201).json({
             message: 'Order created successfully',

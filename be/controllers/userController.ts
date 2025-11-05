@@ -12,12 +12,12 @@ const JWT_SECRET = 'lumera_user_secret_key_2024';
 // 1. Fungsi untuk Pendaftaran Pembeli (User Registration)
 export const registerUser = async (req: Request, res: Response) => {
     const { name, email, password, phone } = req.body;
-    
+
     // Validasi input
     if (!name || !email || !password || !phone) {
         return res.status(400).json({ message: 'Name, email, password, and phone are required.' });
     }
-    
+
     try {
         // Hashing password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -30,9 +30,9 @@ export const registerUser = async (req: Request, res: Response) => {
                 phone,
             },
         });
-        
+
         // JANGAN kembalikan password
-        const { password: _, ...userData } = user; 
+        const { password: _, ...userData } = user;
         res.status(201).json({ message: 'User registered successfully', user: userData });
     } catch (error: any) {
         if (error.code === 'P2002') { // Error unik (email sudah ada)
@@ -83,20 +83,29 @@ export const loginUser = async (req: Request, res: Response) => {
 // 3. Update user profile
 export const updateUserProfile = async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
-    const { name, email, phone } = req.body;
+    const { name, email, phone, address } = req.body;
 
     if (!userId) {
         return res.status(401).json({ message: 'User not authenticated.' });
     }
 
     try {
+        const updateData: any = {
+            name: name || undefined,
+            email: email || undefined,
+            phone: phone || undefined,
+            address: address || undefined,
+        };
+
+        // Handle file upload
+        if ((req as any).file) {
+            const imagePath = `/uploads/${(req as any).file.filename}`;
+            updateData.image = imagePath;
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data: {
-                name: name || undefined,
-                email: email || undefined,
-                phone: phone || undefined,
-            },
+            data: updateData,
         });
 
         const { password: _, ...userData } = updatedUser;

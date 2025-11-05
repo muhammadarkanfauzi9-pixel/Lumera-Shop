@@ -1,13 +1,26 @@
-// File: be/routes/userRoutes.ts
-
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import multer from 'multer';
+import path from 'path';
 // Ingat, gunakan .js di TypeScript saat mengimpor relatif!
 import { registerUser, loginUser, updateUserProfile } from '../controllers/userController.js';
 import { verifyUserToken } from '../middleware/auth.js';
 
 const prisma = new PrismaClient();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(process.cwd(), '../fe/public/uploads'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
 
 const router = Router();
 
@@ -19,7 +32,7 @@ router.post('/login', loginUser);
 
 // PUT /api/auth/profile
 // Update user profile (User only)
-router.put('/profile', verifyUserToken, updateUserProfile);
+router.put('/profile', verifyUserToken, upload.single('image'), updateUserProfile);
 
 // GET /api/auth/profile
 // Get user profile (User only)
