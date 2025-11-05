@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Authorization token required" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const name = formData.get("name");
     const price = formData.get("price");
@@ -29,8 +34,7 @@ export async function POST(req) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // Add admin token if available
-        Authorization: req.headers.get("authorization") || "",
+        Authorization: authHeader,
       },
       body: JSON.stringify(productData),
     });

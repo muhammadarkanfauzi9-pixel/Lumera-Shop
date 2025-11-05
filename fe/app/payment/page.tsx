@@ -4,7 +4,28 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Truck, QrCode } from "lucide-react";
+
+interface PaymentOptionProps {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  subtitle: string;
+  image: string;
+}
+
+interface OrderDetailsProps {
+  subtotal: number;
+  taxes: number;
+  delivery: number;
+  total: number;
+}
+
+interface PaymentCardProps {
+  title: string;
+  subtitle: string;
+  image: string;
+}
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -14,10 +35,11 @@ export default function PaymentPage() {
   const name = searchParams.get("name");
   const price = Number(searchParams.get("price")) || 0;
   const portion = Number(searchParams.get("portion")) || 1;
+  const productId = Number(searchParams.get("productId")) || 1; // Default to 1 if not provided
 
   // Hitung harga
-  const taxes = 0.53;
-  const delivery = 5.53;
+  const taxes = 1000;
+  const delivery = 1000;
   const subtotal = price * portion;
   const total = subtotal + taxes + delivery;
 
@@ -27,7 +49,55 @@ export default function PaymentPage() {
   const [successPopup, setSuccessPopup] = useState(false);
 
   const handlePay = () => {
+    // Just show the popup for COD
     setShowPopup(true);
+  };
+
+  const handleConfirmOrder = async () => {
+    // Prepare order data
+    const items = [
+      {
+        productId: productId,
+        quantity: portion,
+      },
+    ];
+    const paymentMethod = method === "qris" ? "QRIS" : "CASH";
+
+    // Get token from localStorage
+    const token = localStorage.getItem("userToken");
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ items, paymentMethod }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Order created successfully, close popup and redirect to WhatsApp using backend URL
+        setShowPopup(false);
+        // Use the WhatsApp URL from backend response for consistency
+        // Create a temporary link element for better cross-device compatibility
+        const link = document.createElement("a");
+        link.href = data.whatsappUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+
+        // Append to body, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert(data.message || "Failed to create order");
+      }
+    } catch (error) {
+      alert("Error creating order");
+    }
   };
 
   const closePopup = () => {
@@ -36,18 +106,32 @@ export default function PaymentPage() {
 
   const handleFinishQRIS = () => {
     setShowPopup(false);
-    setTimeout(() => setSuccessPopup(true), 250);
+    setTimeout(() => {
+      setSuccessPopup(true);
+      // Auto-redirect to WhatsApp after showing success
+      setTimeout(() => {
+        handleContactAdmin();
+      }, 2000); // 2 seconds delay
+    }, 250);
   };
 
   const handleContactAdmin = () => {
-    const phone = "6288707648846"; // Nomor WhatsApp admin
-    const message = `Halo Admin, saya ingin melakukan pesanan ${
-      method === "cod" ? "COD" : "via QRIS"
-    }:\n🍔 Pesanan: ${name}\nJumlah: ${portion} porsi\nTotal: $${total.toFixed(
-      2
-    )}\nTerima kasih!`;
+    const phone = "6281239450638"; // Nomor WhatsApp admin
+    const message = `Halo Admin, saya telah menyelesaikan pembayaran QRIS.\n\nDetail Pesanan:\n🍔 Pesanan: ${name}\nJumlah: ${portion} porsi\nTotal: Rp ${total.toLocaleString(
+      "id-ID"
+    )}\n\nMohon konfirmasi pesanan saya. Terima kasih!`;
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
+
+    // Create a temporary link element for better cross-device compatibility
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+
+    // Append to body, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Check if user is logged in
@@ -92,22 +176,22 @@ export default function PaymentPage() {
       <div className="text-gray-800 space-y-3">
         <div className="flex justify-between text-sm">
           <span>{name || "Your Order"}</span>
-          <span>${subtotal.toFixed(2)}</span>
+          <span>Rp {subtotal.toLocaleString("id-ID")}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span>Taxes</span>
-          <span>${taxes.toFixed(2)}</span>
+          <span>Rp {taxes.toLocaleString("id-ID")}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span>Delivery fees</span>
-          <span>${delivery.toFixed(2)}</span>
+          <span>Rp {delivery.toLocaleString("id-ID")}</span>
         </div>
 
         <div className="border-t border-gray-200 pt-3" />
 
         <div className="flex justify-between font-semibold text-[15px]">
           <span>Total</span>
-          <span>${total.toFixed(2)}</span>
+          <span>Rp {total.toLocaleString("id-ID")}</span>
         </div>
 
         <p className="text-xs text-gray-500">
@@ -142,14 +226,14 @@ export default function PaymentPage() {
         <div>
           <p className="text-sm text-gray-600">Total Price</p>
           <p className="text-[22px] font-semibold text-[#7B4540] tracking-wide">
-            ${total.toFixed(2)}
+            Rp {total.toLocaleString("id-ID")}
           </p>
         </div>
         <button
           onClick={handlePay}
           className="bg-[#2b1d1a] text-white px-8 py-3 rounded-2xl font-semibold shadow-md hover:scale-105 transition-transform"
         >
-          Pay Now
+          Order Now
         </button>
       </div>
 
@@ -189,10 +273,10 @@ export default function PaymentPage() {
                     image="/images/cards/mastercard.png"
                   />
                   <button
-                    onClick={handleContactAdmin}
+                    onClick={handleConfirmOrder}
                     className="mt-6 w-full bg-[#7B4540] text-white py-3 rounded-xl font-semibold shadow-md hover:bg-[#633732] transition"
                   >
-                    Lanjut ke Admin
+                    Pay Now
                   </button>
                 </div>
               )}
@@ -205,7 +289,7 @@ export default function PaymentPage() {
                   </h3>
                   <div className="flex justify-center mb-4">
                     <Image
-                      src="/images/qris-demo.png"
+                      src="/images/qris.png/WhatsApp Image 2025-11-05 at 15.16.49_298b6f3b.jpg"
                       alt="QRIS Code"
                       width={200}
                       height={200}
@@ -286,7 +370,14 @@ export default function PaymentPage() {
 }
 
 // Reusable components
-function PaymentOption({ selected, onClick, title, subtitle, image }) {
+function PaymentOption({
+  selected,
+  onClick,
+  title,
+  subtitle,
+  image,
+}: PaymentOptionProps) {
+  const Icon = title === "COD" ? Truck : QrCode;
   return (
     <div
       onClick={onClick}
@@ -297,7 +388,16 @@ function PaymentOption({ selected, onClick, title, subtitle, image }) {
       }`}
     >
       <div className="flex items-center gap-3">
-        <Image src={image} alt={title} width={40} height={40} />
+        <div
+          className={`p-2 rounded-lg ${
+            selected ? "bg-white/20" : "bg-gray-200"
+          }`}
+        >
+          <Icon
+            size={24}
+            className={selected ? "text-white" : "text-gray-600"}
+          />
+        </div>
         <div>
           <p
             className={`text-[14px] font-medium ${
@@ -328,31 +428,31 @@ function PaymentOption({ selected, onClick, title, subtitle, image }) {
   );
 }
 
-function OrderDetails({ subtotal, taxes, delivery, total }) {
+function OrderDetails({ subtotal, taxes, delivery, total }: OrderDetailsProps) {
   return (
     <>
       <div className="flex justify-between text-sm">
         <span>Order</span>
-        <span>${subtotal.toFixed(2)}</span>
+        <span>Rp {subtotal.toLocaleString("id-ID")}</span>
       </div>
       <div className="flex justify-between text-sm">
         <span>Taxes</span>
-        <span>${taxes.toFixed(2)}</span>
+        <span>Rp {taxes.toLocaleString("id-ID")}</span>
       </div>
       <div className="flex justify-between text-sm">
         <span>Delivery fees</span>
-        <span>${delivery.toFixed(2)}</span>
+        <span>Rp {delivery.toLocaleString("id-ID")}</span>
       </div>
       <div className="border-t border-gray-300 pt-3" />
       <div className="flex justify-between font-semibold text-[15px]">
         <span>Total</span>
-        <span>${total.toFixed(2)}</span>
+        <span>Rp {total.toLocaleString("id-ID")}</span>
       </div>
     </>
   );
 }
 
-function PaymentCard({ title, subtitle, image }) {
+function PaymentCard({ title, subtitle, image }: PaymentCardProps) {
   return (
     <div className="flex justify-between items-center bg-[#2b1d1a] text-white px-4 py-3 rounded-2xl shadow-md">
       <div className="flex items-center gap-3">

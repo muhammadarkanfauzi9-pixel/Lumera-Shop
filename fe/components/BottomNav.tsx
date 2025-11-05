@@ -33,9 +33,24 @@ export default function BottomNav() {
               transition={{ duration: 0.3, delay: 2.2 + index * 0.1 }}
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => router.push(item.path)}
-              className={`flex flex-col items-center transition-all ${
-                pathname === item.path ? "text-[#8B5E3C]" : "text-[#B7A89A]"
+              onClick={() => {
+                if (item.name === "Message") {
+                  // Direct WhatsApp redirect for Message button
+                  const phone = "6281239450638"; // Admin WhatsApp number
+                  const message =
+                    "Halo Admin, saya ingin bertanya tentang Lumera Shop.";
+                  const url = `https://wa.me/${phone}?text=${encodeURIComponent(
+                    message
+                  )}`;
+                  window.open(url, "_blank");
+                } else {
+                  router.push(item.path);
+                }
+              }}
+              className={`flex flex-col items-center transition-all duration-200 hover:bg-white/10 rounded-lg px-2 py-1 ${
+                pathname === item.path
+                  ? "text-[#8B5E3C]"
+                  : "text-[#B7A89A] hover:text-white"
               }`}
             >
               {item.icon}
@@ -78,9 +93,24 @@ export default function BottomNav() {
               transition={{ duration: 0.3, delay: 2.3 + index * 0.1 }}
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => router.push(item.path)}
-              className={`flex flex-col items-center transition-all ${
-                pathname === item.path ? "text-[#8B5E3C]" : "text-[#B7A89A]"
+              onClick={() => {
+                if (item.name === "Message") {
+                  // Direct WhatsApp redirect for Message button
+                  const phone = "6281239450638"; // Admin WhatsApp number
+                  const message =
+                    "Halo Admin, saya ingin bertanya tentang Lumera Shop.";
+                  const url = `https://wa.me/${phone}?text=${encodeURIComponent(
+                    message
+                  )}`;
+                  window.open(url, "_blank");
+                } else {
+                  router.push(item.path);
+                }
+              }}
+              className={`flex flex-col items-center transition-all duration-200 hover:bg-white/10 rounded-lg px-2 py-1 ${
+                pathname === item.path
+                  ? "text-[#8B5E3C]"
+                  : "text-[#B7A89A] hover:text-white"
               }`}
             >
               {item.icon}

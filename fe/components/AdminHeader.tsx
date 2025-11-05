@@ -13,14 +13,11 @@ export default function AdminHeader() {
         const token = localStorage.getItem("adminToken");
         if (!token) return;
 
-        const response = await fetch(
-          "http://localhost:5000/api/admin/profile",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await fetch("/api/admin/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (response.ok) {
           const data = await response.json();
@@ -41,7 +38,13 @@ export default function AdminHeader() {
       <div className="flex items-center gap-4">
         <div className="flex items-center bg-gray-100 px-3 py-2 rounded-lg gap-2">
           <Calendar size={18} className="text-gray-500" />
-          <span className="text-sm text-gray-600">31 Jul - 03 Aug 2020</span>
+          <span className="text-sm text-gray-600">
+            {new Date().toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
         </div>
         <Bell className="text-gray-500" />
         <div className="flex items-center gap-2">

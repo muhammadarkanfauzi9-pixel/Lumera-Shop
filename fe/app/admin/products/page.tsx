@@ -18,6 +18,8 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -29,8 +31,8 @@ export default function AdminProductsPage() {
       if (!response.ok) throw new Error("Failed to fetch products");
       const data = await response.json();
       setProducts(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -39,10 +41,13 @@ export default function AdminProductsPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
+    setDeletingId(id);
+    setDeleteError(null);
+
     try {
       const token = localStorage.getItem("adminToken");
       if (!token) {
-        alert("Admin authentication required. Please login again.");
+        setDeleteError("Admin authentication required. Please login again.");
         return;
       }
       const response = await fetch(`/api/products/${id}`, {
@@ -52,10 +57,11 @@ export default function AdminProductsPage() {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete product");
-      alert("Product deleted successfully");
-      fetchProducts(); // Refresh the list
-    } catch (err: any) {
-      alert("Error: " + err.message);
+      setProducts(products.filter(p => p.id !== id));
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -75,6 +81,19 @@ export default function AdminProductsPage() {
           </button>
         </Link>
       </div>
+
+      {/* Error Message */}
+      {deleteError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {deleteError}
+          <button
+            onClick={() => setDeleteError(null)}
+            className="float-right ml-4 font-bold"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* 📋 Tabel Produk */}
       <div className="bg-white shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
@@ -126,9 +145,14 @@ export default function AdminProductsPage() {
                   </Link>
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                    disabled={deletingId === item.id}
+                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Trash2 size={16} />
+                    {deletingId === item.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
                   </button>
                 </td>
               </tr>

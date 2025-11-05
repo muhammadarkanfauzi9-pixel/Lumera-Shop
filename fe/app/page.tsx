@@ -97,6 +97,12 @@ export default function HomePage() {
         image: "/images/avatar.jpg", // Use default avatar for logged in users too
       });
       setIsLoggedIn(true);
+
+      // ✅ Jika admin, redirect ke dashboard admin
+      if (parsed.type === "admin") {
+        router.push("/admin");
+        return;
+      }
     } else {
       setUser({
         name: "Guest User",
@@ -107,7 +113,7 @@ export default function HomePage() {
 
     const savedFav = localStorage.getItem("favorites");
     if (savedFav) setFavorites(JSON.parse(savedFav));
-  }, []);
+  }, [router]);
 
   // ✅ Simpan / hapus favorite
   const toggleFavorite = (

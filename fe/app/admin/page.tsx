@@ -82,24 +82,28 @@ export default function AdminDashboardPage() {
       value: stats?.todaySales || "Rp 0",
       icon: <DollarSign size={26} />,
       color: "bg-blue-600 text-white",
+      route: "/admin/today-sales",
     },
     {
       title: "New Orders Today",
       value: stats?.newOrdersToday || 0,
       icon: <ShoppingBag size={26} />,
       color: "bg-green-600 text-white",
+      route: "/admin/new-orders-today",
     },
     {
       title: "Total Products",
       value: stats?.totalProducts || 0,
       icon: <Users size={26} />,
       color: "bg-purple-600 text-white",
+      route: "/admin/products",
     },
     {
       title: "Avg Rating",
       value: `${stats?.avgRating || 4.9} ★`,
       icon: <Star size={26} />,
       color: "bg-yellow-500 text-white",
+      route: "/admin/reviews",
     },
   ];
 
@@ -110,24 +114,28 @@ export default function AdminDashboardPage() {
       value: stats?.totalRevenue || "Rp 0",
       icon: <TrendingUp size={26} />,
       color: "bg-blue-100 text-blue-700 border-blue-200",
+      route: "/admin/total-revenue",
     },
     {
       title: "Total Orders",
       value: stats?.totalOrders || 0,
       icon: <ShoppingBag size={26} />,
       color: "bg-green-100 text-green-700 border-green-200",
+      route: "/admin/orders",
     },
     {
       title: "Total Products",
       value: stats?.totalProducts || 0,
       icon: <Users size={26} />,
       color: "bg-purple-100 text-purple-700 border-purple-200",
+      route: "/admin/products",
     },
     {
       title: "Reviews Received",
       value: "4.8 ★",
       icon: <Star size={26} />,
       color: "bg-yellow-100 text-yellow-700 border-yellow-200",
+      route: "/admin/reviews",
     },
   ];
 
@@ -191,7 +199,8 @@ export default function AdminDashboardPage() {
               variants={cardAnimation}
               initial="hidden"
               animate="visible"
-              className={`p-5 rounded-2xl shadow-md border border-gray-200 flex items-center justify-between transition-all hover:scale-[1.02] hover:shadow-lg ${item.color}`}
+              onClick={() => (window.location.href = item.route)}
+              className={`p-5 rounded-2xl shadow-md border border-gray-200 flex items-center justify-between transition-all hover:scale-[1.02] hover:shadow-lg cursor-pointer ${item.color}`}
             >
               <div>
                 <p className="text-sm opacity-80">{item.title}</p>
@@ -217,7 +226,8 @@ export default function AdminDashboardPage() {
               variants={cardAnimation}
               initial="hidden"
               animate="visible"
-              className={`bg-white p-6 rounded-2xl border-2 ${item.color} flex items-center justify-between hover:shadow-md transition-all`}
+              onClick={() => (window.location.href = item.route)}
+              className={`bg-white p-6 rounded-2xl border-2 ${item.color} flex items-center justify-between hover:shadow-md transition-all cursor-pointer`}
             >
               <div>
                 <p className="text-sm text-gray-500 font-medium">
@@ -262,7 +272,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="h-72">
+        <div className="h-72" style={{ minWidth: 0, minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />

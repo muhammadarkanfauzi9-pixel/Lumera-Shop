@@ -21,6 +21,11 @@ export async function PUT(req, { params }) {
   const { id } = await params;
 
   try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Authorization token required" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const name = formData.get("name");
     const price = formData.get("price");
@@ -43,7 +48,7 @@ export async function PUT(req, { params }) {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: req.headers.get("authorization") || "",
+        Authorization: authHeader,
       },
       body: JSON.stringify(productData),
     });
@@ -65,10 +70,15 @@ export async function DELETE(req, { params }) {
   const { id } = await params;
 
   try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Authorization token required" }, { status: 401 });
+    }
+
     const backendResponse = await fetch(`http://localhost:5000/api/products/${id}`, {
       method: "DELETE",
       headers: {
-        Authorization: req.headers.get("authorization") || "",
+        Authorization: authHeader,
       },
     });
 

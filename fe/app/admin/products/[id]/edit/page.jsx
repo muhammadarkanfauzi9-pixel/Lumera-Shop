@@ -19,6 +19,9 @@ export default function EditProductPage() {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   useEffect(() => {
     fetchProduct();
@@ -37,7 +40,7 @@ export default function EditProductPage() {
       });
       setPreview(product.imageUrl);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -59,6 +62,10 @@ export default function EditProductPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    setUpdating(true);
+    setUpdateError(null);
+    setUpdateSuccess(false);
+
     const data = new FormData();
     data.append("name", formData.name);
     data.append("price", formData.price);
@@ -69,7 +76,7 @@ export default function EditProductPage() {
     try {
       const token = localStorage.getItem("adminToken");
       if (!token) {
-        alert("Admin authentication required. Please login again.");
+        setUpdateError("Admin authentication required. Please login again.");
         return;
       }
       const res = await fetch(`/api/products/${id}`, {
@@ -82,10 +89,14 @@ export default function EditProductPage() {
 
       if (!res.ok) throw new Error("Gagal mengupdate produk");
 
-      alert("✅ Produk berhasil diupdate!");
-      router.push("/admin/products");
-    } catch (error) {
-      alert("❌ " + error.message);
+      setUpdateSuccess(true);
+      setTimeout(() => {
+        router.push("/admin/products");
+      }, 1500);
+    } catch (err) {
+      setUpdateError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -108,6 +119,26 @@ export default function EditProductPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+        {/* Success Message */}
+        {updateSuccess && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            ✅ Produk berhasil diupdate! Redirecting...
+          </div>
+        )}
+
+        {/* Error Message */}
+        {updateError && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {updateError}
+            <button
+              onClick={() => setUpdateError(null)}
+              className="float-right ml-4 font-bold"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <form
           onSubmit={handleSubmit}
           className="space-y-6"
@@ -206,10 +237,20 @@ export default function EditProductPage() {
           <div className="pt-6">
             <button
               type="submit"
-              className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl transition"
+              disabled={updating}
+              className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save size={20} />
-              Update Produk
+              {updating ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Save size={20} />
+                  Update Produk
+                </>
+              )}
             </button>
           </div>
         </form>

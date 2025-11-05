@@ -24,6 +24,8 @@ export default function UserProfilePage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -37,7 +39,7 @@ export default function UserProfilePage() {
         return;
       }
 
-      const response = await fetch("http://localhost:5000/api/users/profile", {
+      const response = await fetch("/api/profile", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -49,11 +51,11 @@ export default function UserProfilePage() {
 
       const data = await response.json();
       setProfile({
-        name: data.name || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        address: data.address || "",
-        image: data.image || "/images/profile/avatar.png",
+        name: data.user.name || "",
+        email: data.user.email || "",
+        phone: data.user.phone || "",
+        address: data.user.address || "",
+        image: data.user.image || "/images/profile/avatar.png",
       });
     } catch (err) {
       setError((err as Error).message);
@@ -72,9 +74,10 @@ export default function UserProfilePage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageFile(file);
       const imageURL = URL.createObjectURL(file);
-      const updated = { ...profile, image: imageURL };
-      setProfile(updated);
+      setImagePreview(imageURL);
+      setProfile((prev) => ({ ...prev, image: imageURL }));
     }
   };
 
@@ -82,22 +85,43 @@ export default function UserProfilePage() {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("userToken");
-      const response = await fetch("http://localhost:5000/api/users/profile", {
+      const formData = new FormData();
+
+      formData.append("name", profile.name);
+      formData.append("email", profile.email);
+      formData.append("phone", profile.phone);
+      formData.append("address", profile.address);
+
+      if (imageFile) {
+        formData.append("image", imageFile);
+      }
+
+      const response = await fetch("/api/profile", {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: profile.name,
-          email: profile.email,
-          phone: profile.phone,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
         throw new Error("Failed to update profile");
       }
+
+      const result = await response.json();
+
+      // Update profile with saved data
+      setProfile({
+        name: result.user.name || "",
+        email: result.user.email || "",
+        phone: result.user.phone || "",
+        address: result.user.address || "",
+        image: result.user.image || "/images/profile/avatar.png",
+      });
+
+      // Clear temporary states
+      setImageFile(null);
+      setImagePreview(null);
 
       setIsEditing(false);
       alert("✅ Profil berhasil disimpan!");

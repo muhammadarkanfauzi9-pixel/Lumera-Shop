@@ -6,14 +6,32 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Star } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
+interface Product {
+  id: number;
+  name: string;
+  description?: string;
+  price: number;
+  stock: number;
+  isAvailable: boolean;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function ProductDetail() {
   const router = useRouter();
   const { id } = useParams();
   const [spicy, setSpicy] = useState(1);
   const [portion, setPortion] = useState(1);
-  const [product, setProduct] = useState(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // 🔥 Total harga otomatis berdasarkan portion
+  const totalPrice = useMemo(
+    () => (product ? product.price * portion : 0),
+    [product, portion]
+  );
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -25,7 +43,7 @@ export default function ProductDetail() {
         const data = await response.json();
         setProduct(data);
       } catch (err) {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "An error occurred");
         console.error("Error fetching product:", err);
       } finally {
         setLoading(false);
@@ -58,12 +76,6 @@ export default function ProductDetail() {
       </div>
     );
   }
-
-  // 🔥 Total harga otomatis berdasarkan portion
-  const totalPrice = useMemo(
-    () => product.price * portion,
-    [product.price, portion]
-  );
 
   const handleOrderNow = () => {
     const user = localStorage.getItem("user");

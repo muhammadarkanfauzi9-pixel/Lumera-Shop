@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Camera,
 } from "lucide-react";
+import { useUser } from "../context/UserContext";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -65,11 +66,11 @@ export default function ProfilePage() {
     alert("✅ Profil berhasil disimpan!");
   };
 
-  // ✅ logout (hapus data dari localStorage)
+  // ✅ logout (gunakan context untuk clear semua data auth)
+  const { logout } = useUser();
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("userToken");
-    router.push("/login");
+    logout();
+    router.push("/"); // Redirect ke home page setelah logout
   };
 
   return (

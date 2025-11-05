@@ -45,10 +45,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("user", JSON.stringify(data));
   };
 
-  // 🚪 Hapus user dari context & localStorage
+  // 🚪 Hapus user dari context & localStorage (clear semua data auth)
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("adminToken");
+    // Hapus data lainnya jika ada
+    localStorage.removeItem("userProfile");
+    localStorage.removeItem("favorites");
   };
 
   return (
@@ -61,7 +66,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 // ⚡ Hook untuk mengakses context dengan aman
 export const useUser = () => {
   const context = useContext(UserContext);
-  if (!context)
-    throw new Error("useUser must be used within a UserProvider");
+  if (!context) throw new Error("useUser must be used within a UserProvider");
   return context;
 };
