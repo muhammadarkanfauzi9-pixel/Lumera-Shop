@@ -39,13 +39,27 @@ export default function OrderTable() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch("/api/orders/admin");
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) {
+        console.error("No admin token found");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/orders/admin", {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
+      } else if (response.status === 401) {
+        console.error("Unauthorized: Invalid or expired admin token");
       }
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
+    } catch (error: any) {
+      console.error("Failed to fetch orders:", error?.message || error);
     } finally {
       setLoading(false);
     }
@@ -53,21 +67,32 @@ export default function OrderTable() {
 
   const handleConfirmPayment = async (orderId: number) => {
     try {
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) {
+        alert("No admin token found. Please login again.");
+        return;
+      }
+
       const response = await fetch(`/api/orders/${orderId}/payment`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ paymentStatus: "COMPLETED" }),
       });
 
       if (response.ok) {
         fetchOrders(); // Refresh orders
+      } else if (response.status === 401) {
+        alert("Session expired. Please login again.");
       } else {
-        alert("Failed to confirm payment");
+        const errorData = await response.json();
+        alert(errorData.message || "Failed to confirm payment");
       }
     } catch (error) {
-      alert("Error confirming payment");
+      console.error("Error confirming payment:", error);
+      alert("Error confirming payment. Please try again.");
     }
   };
 

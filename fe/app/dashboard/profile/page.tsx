@@ -10,6 +10,8 @@ import {
   Lock,
   ArrowLeft,
   Camera,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 
 export default function UserProfilePage() {
@@ -20,12 +22,15 @@ export default function UserProfilePage() {
     email: "",
     phone: "",
     address: "",
-    image: "/images/profile/avatar.png",
+    image: "",
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -83,10 +88,16 @@ export default function UserProfilePage() {
 
   // ✅ simpan edit
   const handleSave = async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
+
     try {
       const token = localStorage.getItem("userToken");
-      const formData = new FormData();
+      console.log("Token:", token);
+      console.log("Profile data to save:", profile);
 
+      const formData = new FormData();
       formData.append("name", profile.name);
       formData.append("email", profile.email);
       formData.append("phone", profile.phone);
@@ -94,7 +105,10 @@ export default function UserProfilePage() {
 
       if (imageFile) {
         formData.append("image", imageFile);
+        console.log("Image file:", imageFile);
       }
+
+      console.log("Sending request to /api/profile");
 
       const response = await fetch("/api/profile", {
         method: "PUT",
@@ -104,11 +118,19 @@ export default function UserProfilePage() {
         body: formData,
       });
 
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+
       if (!response.ok) {
-        throw new Error("Failed to update profile");
+        const errorText = await response.text();
+        console.error("Response error:", errorText);
+        throw new Error(
+          `Failed to update profile: ${response.status} ${errorText}`
+        );
       }
 
       const result = await response.json();
+      console.log("Response data:", result);
 
       // Update profile with saved data
       setProfile({
@@ -124,9 +146,15 @@ export default function UserProfilePage() {
       setImagePreview(null);
 
       setIsEditing(false);
-      alert("✅ Profil berhasil disimpan!");
+      setSaveSuccess(true);
+
+      // Hide success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      alert("❌ " + (err as Error).message);
+      console.error("Save error:", err);
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -209,6 +237,24 @@ export default function UserProfilePage() {
         </div>
       </div>
 
+      {/* Success message */}
+      {saveSuccess && (
+        <div className="mt-16 w-[88%] max-w-sm bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+          <CheckCircle size={16} className="text-green-600" />
+          <span className="text-sm text-green-800">
+            Profile updated successfully!
+          </span>
+        </div>
+      )}
+
+      {/* Error message */}
+      {saveError && (
+        <div className="mt-16 w-[88%] max-w-sm bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+          <AlertCircle size={16} className="text-red-600" />
+          <span className="text-sm text-red-800">{saveError}</span>
+        </div>
+      )}
+
       {/* ⚪ FORM */}
       <div className="mt-20 w-[88%] max-w-sm bg-white space-y-5">
         {[
@@ -276,9 +322,11 @@ export default function UserProfilePage() {
       <div className="flex justify-center gap-4 mt-8 mb-8">
         <button
           onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-          className="flex items-center gap-2 bg-[#3A1F17] text-white px-5 py-2 rounded-full text-sm shadow-md hover:scale-[1.03] transition-transform"
+          disabled={saving}
+          className="flex items-center gap-2 bg-[#3A1F17] text-white px-5 py-2 rounded-full text-sm shadow-md hover:scale-[1.03] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Edit3 size={16} /> {isEditing ? "Save" : "Edit profile"}
+          <Edit3 size={16} />
+          {saving ? "Saving..." : isEditing ? "Save" : "Edit profile"}
         </button>
         <button
           onClick={handleLogout}

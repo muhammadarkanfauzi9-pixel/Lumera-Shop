@@ -34,6 +34,8 @@ interface AdminLog {
   module?: string;
   description: string;
   createdAt: string;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 interface LastAccessedModule {
@@ -57,17 +59,31 @@ export default function AdminProfilePage() {
   const [lastAccessedModules, setLastAccessedModules] = useState<
     LastAccessedModule[]
   >([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [logs, setLogs] = useState<AdminLog[]>([]);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsLimit] = useState(20);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [filters, setFilters] = useState({
+    module: undefined as string | undefined,
+    action: undefined as string | undefined,
+    startDate: undefined as string | undefined,
+    endDate: undefined as string | undefined,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateForm, setUpdateForm] = useState({ name: "", email: "" });
   const [updating, setUpdating] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchAdminProfile();
   }, []);
 
-  const fetchAdminProfile = async () => {
+  async function fetchAdminProfile() {
     try {
       const token = localStorage.getItem("adminToken");
       if (!token) {
@@ -75,11 +91,7 @@ export default function AdminProfilePage() {
         return;
       }
 
-      const response = await fetch("http://localhost:5000/api/admin/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch("/api/admin/profile");
 
       if (!response.ok) {
         throw new Error("Failed to fetch admin profile");
@@ -93,6 +105,95 @@ export default function AdminProfilePage() {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  const fetchLogs = async (page = 1) => {
+    try {
+      setLoadingLogs(true);
+
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(logsLimit));
+      if (filters.module) params.set("module", filters.module);
+      if (filters.action) params.set("action", filters.action);
+      if (filters.startDate) params.set("startDate", filters.startDate);
+      if (filters.endDate) params.set("endDate", filters.endDate);
+
+      const response = await fetch(`/api/admin/logs?${params.toString()}`);
+
+      if (!response.ok) throw new Error("Failed to fetch logs");
+
+      const data = await response.json();
+      setLogs(data.logs || []);
+      setLogsTotal(data.total || 0);
+      setLogsPage(data.page || 1);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal memuat riwayat: " + (err as Error).message);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      setExporting(true);
+
+      // Fetch all logs for export
+      const params = new URLSearchParams();
+      params.set("limit", "9999"); // Get all logs
+      if (filters.module) params.set("module", filters.module);
+      if (filters.action) params.set("action", filters.action);
+      if (filters.startDate) params.set("startDate", filters.startDate);
+      if (filters.endDate) params.set("endDate", filters.endDate);
+
+      const response = await fetch(`/api/admin/logs?${params.toString()}`);
+
+      if (!response.ok) throw new Error("Failed to fetch logs for export");
+
+      const data = await response.json();
+      const logs = data.logs || [];
+
+      // Convert logs to CSV format
+      const csvContent = [
+        [
+          "Waktu",
+          "Aksi",
+          "Modul",
+          "Deskripsi",
+          "IP Address",
+          "User Agent",
+        ].join(","),
+        ...logs.map((log: AdminLog) =>
+          [
+            new Date(log.createdAt).toLocaleString("id-ID"),
+            log.action,
+            log.module || "-",
+            `"${log.description.replace(/"/g, '""')}"`,
+            log.ipAddress || "-",
+            `"${(log.userAgent || "-").replace(/"/g, '""')}"`,
+          ].join(",")
+        ),
+      ].join("\\n");
+
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute(
+        "download",
+        `admin_logs_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      alert("Export CSV berhasil!");
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mengekspor log: " + (err as Error).message);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -113,12 +214,10 @@ export default function AdminProfilePage() {
 
     setUpdating(true);
     try {
-      const token = localStorage.getItem("adminToken");
       const response = await fetch("/api/admin/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(updateForm),
       });
@@ -313,7 +412,10 @@ export default function AdminProfilePage() {
               </div>
 
               <button
-                onClick={() => alert("Lihat Riwayat Lengkap")}
+                onClick={() => {
+                  setHistoryOpen(true);
+                  fetchLogs(1);
+                }}
                 className="mt-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
               >
                 + Lihat Riwayat Lengkap
@@ -351,6 +453,157 @@ export default function AdminProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* HISTORY MODAL */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-6 bg-black bg-opacity-50 overflow-auto">
+          <div className="w-full max-w-4xl bg-white rounded-xl shadow-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Riwayat Lengkap Admin</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Filter modul..."
+                  value={filters.module || ""}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      module: e.target.value || undefined,
+                    })
+                  }
+                  className="px-3 py-2 border rounded-md w-40"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter aksi..."
+                  value={filters.action || ""}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      action: e.target.value || undefined,
+                    })
+                  }
+                  className="px-3 py-2 border rounded-md w-40"
+                />
+                <input
+                  type="date"
+                  value={filters.startDate || ""}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      startDate: e.target.value || undefined,
+                    })
+                  }
+                  className="px-3 py-2 border rounded-md"
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                  type="date"
+                  value={filters.endDate || ""}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      endDate: e.target.value || undefined,
+                    })
+                  }
+                  className="px-3 py-2 border rounded-md"
+                />
+                <button
+                  onClick={() => fetchLogs(1)}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-md"
+                >
+                  Terapkan
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  disabled={exporting}
+                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {exporting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    "Export CSV"
+                  )}
+                </button>
+                <button
+                  onClick={() => setHistoryOpen(false)}
+                  className="px-3 py-2 bg-gray-100 rounded-md"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+
+            <div className="h-96 overflow-auto">
+              {loadingLogs ? (
+                <div className="flex items-center justify-center h-full">
+                  Memuat...
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="text-center text-gray-500">
+                  Tidak ada riwayat
+                </div>
+              ) : (
+                <table className="w-full text-sm table-auto">
+                  <thead>
+                    <tr className="text-left text-gray-600 border-b">
+                      <th className="py-2">Waktu</th>
+                      <th className="py-2">Aksi</th>
+                      <th className="py-2">Modul</th>
+                      <th className="py-2">Deskripsi</th>
+                      <th className="py-2">IP / UserAgent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log) => (
+                      <tr
+                        key={log.createdAt + log.description}
+                        className="border-b"
+                      >
+                        <td className="py-2 align-top">
+                          {new Date(log.createdAt).toLocaleString("id-ID")}
+                        </td>
+                        <td className="py-2 align-top">{log.action}</td>
+                        <td className="py-2 align-top">{log.module || "-"}</td>
+                        <td className="py-2 align-top">{log.description}</td>
+                        <td className="py-2 align-top text-xs text-gray-500">
+                          {log.ipAddress || "-"} /{" "}
+                          {(log.userAgent || "-").slice(0, 80)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm text-gray-600">Total: {logsTotal}</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchLogs(Math.max(1, logsPage - 1))}
+                  disabled={logsPage <= 1}
+                  className="px-3 py-1 border rounded disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <div className="px-3 py-1 border rounded">{logsPage}</div>
+                <button
+                  onClick={() => fetchLogs(logsPage + 1)}
+                  disabled={logsPage * logsLimit >= logsTotal}
+                  className="px-3 py-1 border rounded disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- MODAL KONFIRMASI / LOGOUT (TETAP SAMA) --- */}
       {(confirming || isLoggingOut) && (

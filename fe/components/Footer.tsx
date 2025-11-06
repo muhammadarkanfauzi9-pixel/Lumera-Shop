@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+import Link from "next/link";
 import React from "react";
 import { motion } from "framer-motion";
 import { Facebook, Instagram, Youtube, Twitter } from "lucide-react";
@@ -13,7 +13,6 @@ export default function Footer() {
       className="bg-gradient-to-r from-[#F4E4BC] to-[#E6D7C3] text-[#654321] px-6 py-8 mt-8"
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-
         {/* Logo + Description */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -26,7 +25,10 @@ export default function Footer() {
           </p>
           <div className="flex gap-3 mt-3">
             {[
-              { icon: Instagram, url: "https://www.instagram.com/lumera.verse/" },
+              {
+                icon: Instagram,
+                url: "https://www.instagram.com/lumera.verse/",
+              },
               { icon: Facebook, url: "https://facebook.com/lumera" },
               { icon: Youtube, url: "https://youtube.com/@lumera" },
               { icon: Twitter, url: "https://twitter.com/lumera" },
@@ -53,11 +55,18 @@ export default function Footer() {
         >
           <h3 className="font-semibold mb-2 text-[#8B4513]">About</h3>
           <ul className="space-y-1 text-xs text-[#654321]/80">
-            {["About us", "Services", "Terms & Condition", "Our Blogs"].map((item, i) => (
-              <motion.li key={i} whileHover={{ x: 5 }} className="cursor-pointer">
-                {item}
-              </motion.li>
-            ))}
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/">About us</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/#product-grid">See all products</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/message">Contact</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/">Our Blogs</Link>
+            </motion.li>
           </ul>
         </motion.div>
 
@@ -69,11 +78,18 @@ export default function Footer() {
         >
           <h3 className="font-semibold mb-2 text-[#8B4513]">Services</h3>
           <ul className="space-y-1 text-xs text-[#654321]/80">
-            {["Help center", "Money refund", "Terms and Policy", "Open dispute"].map((item, i) => (
-              <motion.li key={i} whileHover={{ x: 5 }} className="cursor-pointer">
-                {item}
-              </motion.li>
-            ))}
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/message">Help center</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/payment">Payments</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/">Terms and Policy</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/">Open dispute</Link>
+            </motion.li>
           </ul>
         </motion.div>
 
@@ -85,19 +101,22 @@ export default function Footer() {
         >
           <h3 className="font-semibold mb-2 text-[#8B4513]">For users</h3>
           <ul className="space-y-1 text-xs text-[#654321]/80">
-            {["User Login", "User Register", "Account Setting", "My Orders"].map((item, i) => (
-              <motion.li key={i} whileHover={{ x: 5 }} className="cursor-pointer">
-                {item}
-              </motion.li>
-            ))}
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/login">Login</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/register">Register</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/dashboard/profile">Account Setting</Link>
+            </motion.li>
+            <motion.li whileHover={{ x: 5 }} className="cursor-pointer">
+              <Link href="/dashboard/orders">My Orders</Link>
+            </motion.li>
           </ul>
 
-          <div className="mt-25 flex flex-col gap-2">
-            {[].map((btn, i) => (
-              <motion.div key={i} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Image src={btn.src} alt={btn.alt} width={120} height={40} className="cursor-pointer" />
-              </motion.div>
-            ))}
+          <div className="mt-6">
+            {/* App badges can be added here if needed */}
           </div>
         </motion.div>
       </div>

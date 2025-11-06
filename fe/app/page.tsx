@@ -10,6 +10,7 @@ import {
   Youtube,
   Twitter,
   Search,
+  Star,
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
@@ -29,22 +30,41 @@ export default function HomePage() {
       category: string;
     }[]
   >([]);
+
+  // ⭐️ FOKUS PERUBAHAN 1: Mengubah path default avatar agar konsisten
   const [user, setUser] = useState<{
     name: string;
     image: string;
   }>({
     name: "Guest User",
-    image: "/images/avatar.jpg",
+    image: "/images/profile/avatar.png", // Path default yang sama dengan Profile.tsx
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [products, setProducts] = useState([]);
+  interface Product {
+    id: number;
+    name: string;
+    desc: string;
+    description?: string;
+    price: number;
+    image: string;
+    imageUrl?: string;
+    rating: number;
+    category: string;
+  }
+
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const categories = ["All", "Combos", "Sliders", "Classic"];
+  // Map UI labels to backend category values
+  const categories = [
+    { label: "All", value: "All" },
+    { label: "Desserts", value: "Dessert" },
+    { label: "Savory", value: "Makanan Asin" },
+  ];
 
-  // Fetch products from API
+  // Fetch products from API (TIDAK BERUBAH)
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -54,18 +74,22 @@ export default function HomePage() {
         }
         const data = await response.json();
         // Map API data to match the expected format
-        const mappedProducts = data.map((product) => ({
+        const mappedProducts = data.map((product: Record<string, any>) => ({
           id: product.id,
           name: product.name,
           desc: product.description || "No description available",
+          description: product.description,
           price: product.price,
-          rating: 4.5, // Default rating since not in API
+          rating: product.rating || 4.5,
           image: product.imageUrl || "/images/burgers/burger.png",
-          category: "Classic", // Default category since not in API
+          imageUrl: product.imageUrl || "/images/burgers/burger.png",
+          category: product.category || "Makanan Asin",
         }));
         setProducts(mappedProducts);
-      } catch (err) {
-        setError(err.message);
+      } catch (err: Error | unknown) {
+        setError(
+          err instanceof Error ? err.message : "An unknown error occurred"
+        );
         console.error("Error fetching products:", err);
       } finally {
         setLoading(false);
@@ -75,47 +99,100 @@ export default function HomePage() {
     fetchProducts();
   }, []);
 
-  // ✅ Filter produk
+  // Filter produk (TIDAK BERUBAH)
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    return products.filter((p: Product) => {
       const matchCategory =
         selectedCategory === "All" || p.category === selectedCategory;
       const matchSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.desc.toLowerCase().includes(searchTerm.toLowerCase());
+        (p.description || "").toLowerCase().includes(searchTerm.toLowerCase());
       return matchCategory && matchSearch;
     });
   }, [selectedCategory, searchTerm, products]);
 
-  // ✅ Load user & favorites dari localStorage
+  // ⭐️ FOKUS PERUBAHAN 2: Memuat data user dari API dan localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      const parsed = JSON.parse(savedUser);
-      setUser({
-        name: parsed.name || "Guest User",
-        image: "/images/avatar.jpg", // Use default avatar for logged in users too
-      });
+    const fetchUserData = async (token: string) => {
+      try {
+        const response = await fetch("/api/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error("Failed to fetch user profile for header");
+          return; // Tetap menggunakan data/default yang sudah di-set
+        }
+
+        const data = await response.json();
+
+        // ⭐️ Update state user dengan gambar dari API
+        setUser({
+          name: data.user.name || "User",
+          image: data.user.image || "/images/profile/avatar.png",
+        });
+
+        // Simpan data di localStorage (agar konsisten dengan fetch API)
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            name: data.user.name || "User",
+            type: data.user.type || "user",
+          })
+        );
+
+        // Cek admin dan redirect
+        if (data.user.type === "admin") {
+          router.push("/admin");
+          return;
+        }
+      } catch (err) {
+        console.error("Error fetching user data:", err);
+      }
+    };
+
+    // Ambil token dari localStorage
+    const token = localStorage.getItem("userToken");
+
+    if (token) {
       setIsLoggedIn(true);
 
-      // ✅ Jika admin, redirect ke dashboard admin
-      if (parsed.type === "admin") {
-        router.push("/admin");
-        return;
+      // Ambil data user dari localStorage sebagai fallback/data awal
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+
+        // Set nama sementara/default image sebelum fetch API
+        setUser({
+          name: parsed.name || "User",
+          image: "/images/profile/avatar.png",
+        });
+
+        // Pengecekan admin awal jika ada di localStorage
+        if (parsed.type === "admin") {
+          router.push("/admin");
+          return;
+        }
       }
+
+      fetchUserData(token); // Panggil fungsi untuk mengambil data profil lengkap dari API
     } else {
+      // User tidak login
       setUser({
         name: "Guest User",
-        image: "/images/avatar.jpg",
+        image: "/images/avatar.jpg", // Default image untuk non-logged in user
       });
       setIsLoggedIn(false);
     }
 
+    // Load favorites (TIDAK BERUBAH)
     const savedFav = localStorage.getItem("favorites");
     if (savedFav) setFavorites(JSON.parse(savedFav));
   }, [router]);
 
-  // ✅ Simpan / hapus favorite
+  // Simpan / hapus favorite (TIDAK BERUBAH)
   const toggleFavorite = (
     product: {
       id: number;
@@ -178,70 +255,137 @@ export default function HomePage() {
       <motion.div
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-        className="px-8 py-6 bg-gradient-to-b from-[#F4EFE8] to-[#F9F6F0] -mx-6 -mt-2 shadow-sm"
+        transition={{ duration: 0.6 }}
+        className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-[#E8DCC4]/30"
       >
-        <div className="max-w-[1200px] mx-auto">
-          {/* Header Bar */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex justify-between items-center h-12"
-          >
-            {/* Brand Name - Left Side */}
-            <motion.h1
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-[24px] font-bold text-[#3A2E29]"
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16 sm:h-20">
+            {/* Brand */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center space-x-2"
             >
-              Lumera
-            </motion.h1>
+              <motion.div
+                whileHover={{ rotate: -10 }}
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-[#7B4540] rounded-lg flex items-center justify-center"
+              >
+                <span className="text-white font-bold text-lg sm:text-xl">
+                  L
+                </span>
+              </motion.div>
+              <motion.h1
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-[#7B4540] to-[#2b1d1a]"
+              >
+                Lumera
+              </motion.h1>
+            </motion.div>
 
-            {/* Auth Buttons - Right Side */}
+            {/* Auth & Profile */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex gap-3"
+              className="flex items-center gap-3 sm:gap-4"
             >
               {isLoggedIn ? (
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="w-10 h-10 rounded-full overflow-hidden shadow-sm cursor-pointer"
-                  onClick={() => router.push("/profile")}
-                >
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={40}
-                    height={40}
-                    className="object-cover"
-                  />
+                <motion.div className="flex items-center gap-3">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative group cursor-pointer"
+                    onClick={() => router.push("/dashboard/profile")}
+                  >
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden ring-2 ring-[#7B4540]/20 ring-offset-2 transition-all group-hover:ring-[#7B4540]/40">
+                      <Image
+                        src={user.image}
+                        alt="Profile"
+                        width={48}
+                        height={48}
+                        className="object-cover"
+                      />
+                    </div>
+                    <motion.div
+                      className="absolute -bottom-1 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                    />
+                  </motion.div>
                 </motion.div>
               ) : (
-                <>
+                <div className="flex items-center gap-2 sm:gap-3">
                   <motion.button
-                    whileHover={{ scale: 1.05, y: -1 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => router.push("/login")}
-                    className="px-5 py-2 bg-[#D9B894] text-[#3A2E29] rounded-full font-medium text-sm shadow-sm hover:shadow-md transition-all"
+                    className="px-4 sm:px-6 py-2 text-[#7B4540] font-medium text-sm sm:text-base hover:text-[#2b1d1a] transition-colors"
                   >
                     Login
                   </motion.button>
                   <motion.button
-                    whileHover={{ scale: 1.05, y: -1 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => router.push("/register")}
-                    className="px-5 py-2 bg-[#F4EFE8] text-[#5D4E37] border border-[#E8DCC4] rounded-full font-medium text-sm shadow-sm hover:shadow-md hover:bg-[#F9F6F0] transition-all"
+                    className="px-4 sm:px-6 py-2 bg-[#7B4540] text-white rounded-full text-sm sm:text-base font-medium shadow-lg shadow-[#7B4540]/20 hover:bg-[#2b1d1a] transition-all"
                   >
                     Register
                   </motion.button>
-                </>
+                </div>
               )}
             </motion.div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Hero Section with Search */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="pt-24 sm:pt-32 pb-8 bg-linear-to-b from-white to-[#FAF7F2]"
+      >
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Welcome Message */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-center space-y-4"
+          >
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#2b1d1a]">
+              {isLoggedIn ? (
+                <>
+                  Welcome back,{" "}
+                  <span className="text-[#7B4540]">{user.name}</span>!
+                </>
+              ) : (
+                <>Discover Your Favorite Food</>
+              )}
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
+              {isLoggedIn
+                ? "Continue exploring our delicious menu and find your next favorite meal."
+                : "Experience a wide variety of delicious meals, carefully crafted just for you."}
+            </p>
+          </motion.div>
+
+          {/* Search Bar */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mt-8 sm:mt-12 max-w-2xl mx-auto"
+          >
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search your favorite food..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white shadow-xl shadow-[#7B4540]/5 border border-[#E8DCC4]/30 focus:outline-none focus:ring-2 focus:ring-[#7B4540]/20 transition-all text-[#2b1d1a]"
+              />
+            </div>
           </motion.div>
         </div>
       </motion.div>
@@ -251,7 +395,7 @@ export default function HomePage() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.3 }}
-        className="px-8 pt-12 pb-8 bg-gradient-to-b from-[#F9F6F0] to-[#FAF7F2]"
+        className="px-8 pt-12 pb-8 bg-linear-to-b from-[#F9F6F0] to-[#FAF7F2]"
       >
         <div className="max-w-[1100px] mx-auto">
           {/* Welcome Message */}
@@ -262,142 +406,173 @@ export default function HomePage() {
             className="text-center mb-8"
           >
             <p className="text-[#8B7355] text-base leading-relaxed">
-              {isLoggedIn ? (
-                <>
-                  Hi, <span className="font-semibold">{user.name}</span> 👋
-                </>
-              ) : (
-                <>Selamat datang wahai pengunjung! 👋</>
-              )}
+              {/* Greeting removed for logged-in users per request */}
+              {isLoggedIn ? null : <>Selamat datang wahai pengunjung! 👋</>}
             </p>
-          </motion.div>
-
-          {/* Search Bar - Wide */}
-          <motion.div
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="mb-8"
-          >
-            <motion.div
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className="flex items-center bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-[0_4px_12px_#00000014] border border-[#D9B894]/20 w-full max-w-[1000px] mx-auto"
-            >
-              <Search className="w-5 h-5 text-[#8B7355] mr-4 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search your favorite food..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 outline-none text-base bg-transparent text-[#3A2E29] placeholder-[#8B7355]/60"
-              />
-            </motion.div>
           </motion.div>
 
           {/* Categories */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.7 }}
-            className="flex gap-3 overflow-x-auto pb-2 no-scrollbar justify-center"
+            transition={{ delay: 0.6 }}
+            className="mt-12 pb-4"
           >
-            {categories.map((cat, index) => (
-              <motion.button
-                key={cat}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.8 + index * 0.1 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all border shadow-sm ${
-                  selectedCategory === cat
-                    ? "bg-[#D9B894] text-[#3A2E29] border-[#D9B894] shadow-md"
-                    : "bg-[#F4EFE8] text-[#5D4E37] border-[#E8DCC4] hover:bg-[#F9F6F0] hover:shadow-md"
-                }`}
+            <div className="flex items-center justify-between mb-6 px-4">
+              <h3 className="text-lg sm:text-xl font-bold text-[#2b1d1a]">
+                Categories
+              </h3>
+              <button
+                onClick={() => {
+                  setSelectedCategory("All");
+                  // scroll to product grid
+                  const el = document.getElementById("product-grid");
+                  if (el)
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="text-[#7B4540] hover:text-[#2b1d1a] text-sm font-medium transition-colors"
               >
-                {cat}
-              </motion.button>
-            ))}
+                See All
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-4 px-4 no-scrollbar">
+              {categories.map((cat, index) => (
+                <motion.button
+                  key={cat.value}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 + index * 0.1 }}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedCategory(cat.value)}
+                  className={`px-6 py-3 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                    selectedCategory === cat.value
+                      ? "bg-[#7B4540] text-white shadow-lg shadow-[#7B4540]/20"
+                      : "bg-white text-[#2b1d1a] border border-[#E8DCC4]/30 hover:border-[#7B4540]/30 hover:bg-[#7B4540]/5"
+                  }`}
+                >
+                  {cat.label}
+                </motion.button>
+              ))}
+            </div>
           </motion.div>
         </div>
       </motion.div>
 
       {/* Product Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
-        className="max-w-[1100px] mx-auto px-6 pb-24 mt-6"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.9 + index * 0.1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleCardClick(product.id)}
-                className="bg-white rounded-2xl shadow-sm p-4 flex flex-col relative cursor-pointer transition-all hover:shadow-lg duration-200"
-              >
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={(e) => toggleFavorite(product, e)}
-                  className={`absolute top-3 right-3 p-1.5 rounded-full z-10 transition-all ${
-                    isFavorite(product.id)
-                      ? "bg-pink-100 text-pink-500"
-                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-                  }`}
-                >
-                  <Heart
-                    size={18}
-                    fill={isFavorite(product.id) ? "rgb(244,114,182)" : "none"}
-                  />
-                </motion.button>
-
+      <div className="bg-[#FAF7F2]">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8"
+          id="product-grid"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product: Product, index: number) => (
                 <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.2 }}
+                  key={product.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.9 + index * 0.1 }}
+                  whileHover={{ y: -4 }}
+                  className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300"
                 >
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    width={200}
-                    height={200}
-                    className="object-contain mx-auto h-32"
-                  />
+                  {/* Favorite Button */}
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => toggleFavorite(product, e)}
+                    className={`absolute top-4 right-4 p-2 rounded-full z-10 transition-all ${
+                      isFavorite(product.id)
+                        ? "bg-pink-100 text-pink-500 shadow-lg"
+                        : "bg-white/80 backdrop-blur-sm text-gray-400 hover:bg-white"
+                    }`}
+                  >
+                    <Heart
+                      size={20}
+                      fill={
+                        isFavorite(product.id) ? "rgb(244,114,182)" : "none"
+                      }
+                    />
+                  </motion.button>
+
+                  {/* Product Card */}
+                  <div
+                    onClick={() => handleCardClick(product.id)}
+                    className="cursor-pointer p-4"
+                  >
+                    {/* Image Container */}
+                    <div className="relative aspect-square mb-4">
+                      <div className="absolute inset-0 bg-[#FAF7F2]/50 rounded-xl group-hover:bg-[#FAF7F2]/30 transition-colors" />
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        fill
+                        className="object-contain p-4 transition-transform duration-300 group-hover:scale-110"
+                      />
+                    </div>
+
+                    {/* Content */}
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-[#2b1d1a] group-hover:text-[#7B4540] transition-colors">
+                        {product.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {product.desc}
+                      </p>
+
+                      {/* Price and Rating */}
+                      <div className="pt-2 flex items-center justify-between">
+                        <p className="text-lg font-bold text-[#7B4540]">
+                          Rp {product.price.toLocaleString()}
+                        </p>
+                        <div className="flex items-center gap-1 text-yellow-500">
+                          <Star size={16} fill="currentColor" />
+                          <span className="text-sm font-medium">
+                            {product.rating}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
-                <h3 className="text-sm font-semibold text-[#3A2E29] mt-3 mb-1">
-                  {product.name}
-                </h3>
-                <p className="text-xs text-[#8B7355] mb-2">{product.desc}</p>
-                <div className="flex justify-between items-center mt-auto text-sm">
-                  <span className="font-semibold text-[#D9B894]">
-                    Rp {product.price.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-[#8B7355]">
-                    ⭐ {product.rating}
-                  </span>
+              ))
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                className="col-span-full flex flex-col items-center justify-center py-12 px-4"
+              >
+                <div className="w-16 h-16 mb-4 text-[#7B4540]/30">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                    />
+                  </svg>
                 </div>
+                <h3 className="text-lg font-semibold text-[#2b1d1a] mb-2">
+                  No Products Found
+                </h3>
+                <p className="text-gray-600 text-center max-w-md">
+                  We couldn&apos;t find any products matching your search. Try
+                  different keywords or browse our categories.
+                </p>
               </motion.div>
-            ))
-          ) : (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1 }}
-              className="col-span-full text-center text-[#8B7355] mt-10 text-sm"
-            >
-              No products found 😢
-            </motion.p>
-          )}
-        </div>
-      </motion.div>
+            )}
+          </div>
+        </motion.div>
+      </div>
 
       <Footer />
 

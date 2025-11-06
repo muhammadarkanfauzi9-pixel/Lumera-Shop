@@ -2,17 +2,33 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, User, MessageSquare, Heart, Plus } from "lucide-react";
+import {
+  Home,
+  User,
+  MessageSquare,
+  Heart,
+  ShoppingCart,
+  ShoppingBag,
+} from "lucide-react";
 
 export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const navItems = [
+  // Left and right groups so center cart stays visually centered
+  const leftItems = [
     { name: "Home", icon: <Home size={22} />, path: "/" },
-    { name: "Profile", icon: <User size={22} />, path: "/profile" },
+    {
+      name: "Orders",
+      icon: <ShoppingBag size={22} />,
+      path: "/dashboard/orders",
+    },
+  ];
+
+  const rightItems = [
     { name: "Message", icon: <MessageSquare size={22} />, path: "/message" },
     { name: "Favorite", icon: <Heart size={22} />, path: "/favorites" },
+    { name: "Profile", icon: <User size={22} />, path: "/dashboard/profile" },
   ];
 
   return (
@@ -25,7 +41,7 @@ export default function BottomNav() {
       <div className="flex justify-between items-center w-[85%] relative">
         {/* KIRI */}
         <div className="flex gap-8">
-          {navItems.slice(0, 2).map((item, index) => (
+          {leftItems.map((item, index) => (
             <motion.button
               key={item.name}
               initial={{ opacity: 0, y: 20 }}
@@ -33,20 +49,7 @@ export default function BottomNav() {
               transition={{ duration: 0.3, delay: 2.2 + index * 0.1 }}
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                if (item.name === "Message") {
-                  // Direct WhatsApp redirect for Message button
-                  const phone = "6281239450638"; // Admin WhatsApp number
-                  const message =
-                    "Halo Admin, saya ingin bertanya tentang Lumera Shop.";
-                  const url = `https://wa.me/${phone}?text=${encodeURIComponent(
-                    message
-                  )}`;
-                  window.open(url, "_blank");
-                } else {
-                  router.push(item.path);
-                }
-              }}
+              onClick={() => router.push(item.path)}
               className={`flex flex-col items-center transition-all duration-200 hover:bg-white/10 rounded-lg px-2 py-1 ${
                 pathname === item.path
                   ? "text-[#8B5E3C]"
@@ -58,7 +61,7 @@ export default function BottomNav() {
           ))}
         </div>
 
-        {/* TOMBOL TENGAH (+) */}
+        {/* TOMBOL TENGAH (Cart) */}
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -80,12 +83,12 @@ export default function BottomNav() {
           }}
           className="absolute left-1/2 -translate-x-1/2 -top-5 bg-[#7B4540] border-4 border-white p-4 rounded-full shadow-lg transition-all"
         >
-          <Plus size={22} className="text-white" />
+          <ShoppingCart size={22} className="text-white" />
         </motion.button>
 
         {/* KANAN */}
-        <div className="flex gap-8">
-          {navItems.slice(2).map((item, index) => (
+        <div className="flex gap-6">
+          {rightItems.map((item, index) => (
             <motion.button
               key={item.name}
               initial={{ opacity: 0, y: 20 }}

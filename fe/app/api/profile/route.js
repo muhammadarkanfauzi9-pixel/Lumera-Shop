@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import formidable from 'formidable';
-import fs from 'fs';
-import path from 'path';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-
-// Disable Next.js body parsing for file uploads
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 // GET /api/profile - Get user profile
 export async function GET(request) {
   try {
-    const token = request.cookies.get('userToken')?.value;
-    if (!token) {
+    // Get token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+    const token = authHeader.split(' ')[1];
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+    const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -42,10 +34,12 @@ export async function GET(request) {
 // PUT /api/profile - Update user profile with image upload
 export async function PUT(request) {
   try {
-    const token = request.cookies.get('userToken')?.value;
-    if (!token) {
+    // Get token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+    const token = authHeader.split(' ')[1];
 
     // Parse form data
     const formData = await request.formData();
@@ -63,7 +57,7 @@ export async function PUT(request) {
     if (address) requestBody.append('address', address);
     if (image) requestBody.append('image', image);
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+    const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
