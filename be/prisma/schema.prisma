@@ -54,6 +54,8 @@ model User {
   password  String   // Harus disimpan dalam bentuk hash (bcrypt)
   name      String
   phone     String
+  address   String?  // Alamat pengguna
+  image     String?  // URL foto profil
   orders    Order[]  // Relasi ke tabel Order
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

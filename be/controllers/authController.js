@@ -1,58 +1,35 @@
 // File: be/controllers/authController.ts
-
-import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { writeAdminLog } from './adminController.js';
-
 const prisma = new PrismaClient();
-
 // JWT Secrets
 const ADMIN_JWT_SECRET = 'lumera_admin_secret_key_2024';
 const USER_JWT_SECRET = 'lumera_user_secret_key_2024';
-
 // Unified Login Function
-export const login = async (req: Request, res: Response) => {
-    let { email, password } = req.body;
-
-    // Normalize incoming email to avoid casing/whitespace issues
-    email = typeof email === 'string' ? email.trim().toLowerCase() : email;
-
+export const login = async (req, res) => {
+    const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required.' });
     }
-
     try {
-    // First, try to find admin (normalize lookup by using the normalized email)
-    let admin = await prisma.admin.findUnique({ where: { email } });
-    let isAdmin = true;
-
+        // First, try to find admin
+        let admin = await prisma.admin.findUnique({ where: { email } });
+        let isAdmin = true;
         if (!admin) {
             // If not admin, try user
             let user = await prisma.user.findUnique({ where: { email } });
             isAdmin = false;
-
             if (!user) {
-                console.warn(`[AUTH] Login failed: no account found for email=${email}`);
                 return res.status(401).json({ message: 'Invalid credentials.' });
             }
-
             // Check password for user
             const isPasswordValid = await bcrypt.compare(password, user.password);
-
             if (!isPasswordValid) {
-                console.warn(`[AUTH] Login failed: invalid password for user email=${email}`);
                 return res.status(401).json({ message: 'Invalid credentials.' });
             }
-
             // Generate user token
-            const token = jwt.sign(
-                { id: user.id, email: user.email },
-                USER_JWT_SECRET,
-                { expiresIn: '7d' }
-            );
-
+            const token = jwt.sign({ id: user.id, email: user.email }, USER_JWT_SECRET, { expiresIn: '7d' });
             const { password: _, ...userData } = user;
             res.status(200).json({
                 token,
@@ -61,37 +38,22 @@ export const login = async (req: Request, res: Response) => {
             });
             return;
         }
-
         // Check password for admin
         const isPasswordValid = await bcrypt.compare(password, admin.password);
-
         if (!isPasswordValid) {
-            console.warn(`[AUTH] Login failed: invalid password for admin email=${email}`);
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
-
         // Generate admin token
-        const token = jwt.sign(
-            { id: admin.id, role: admin.role, email: admin.email },
-            ADMIN_JWT_SECRET,
-            { expiresIn: '1d' }
-        );
-
+        const token = jwt.sign({ id: admin.id, role: admin.role, email: admin.email }, ADMIN_JWT_SECRET, { expiresIn: '1d' });
         const { password: _, ...adminData } = admin;
-        // Log admin login
-        try {
-            await writeAdminLog(admin.id, 'LOGIN', 'AUTH', 'Admin logged in', req.ip, (req.headers['user-agent'] as string) || undefined);
-        } catch (e) {
-            console.error('Failed to write admin log for login', e);
-        }
-
         res.status(200).json({
             token,
             user: { ...adminData, type: 'admin' },
             message: 'Login successful'
         });
-
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Server error during login.', error: error.message });
     }
 };
+//# sourceMappingURL=authController.js.map

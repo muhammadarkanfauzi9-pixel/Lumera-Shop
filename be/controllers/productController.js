@@ -1,12 +1,7 @@
-import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import type { AuthRequest } from '../middleware/auth.js';
-import { writeAdminLog } from './adminController.js';
-
 const prisma = new PrismaClient();
-
 // 1. Get all products (for user dashboard)
-export const getProducts = async (req: Request, res: Response) => {
+export const getProducts = async (req, res) => {
     try {
         const products = await prisma.product.findMany({
             where: { isAvailable: true },
@@ -20,13 +15,13 @@ export const getProducts = async (req: Request, res: Response) => {
             },
         });
         res.status(200).json(products);
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch products.', error: error.message });
     }
 };
-
 // 2. Get product by ID
-export const getProductById = async (req: Request, res: Response) => {
+export const getProductById = async (req, res) => {
     const { id } = req.params;
     const productId = parseInt(id);
     if (isNaN(productId)) {
@@ -48,93 +43,75 @@ export const getProductById = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Product not found.' });
         }
         res.status(200).json(product);
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch product.', error: error.message });
     }
 };
-
 // 3. Create product (Admin only)
-export const createProduct = async (req: Request, res: Response) => {
+export const createProduct = async (req, res) => {
     const { name, description, price, stock, imageUrl } = req.body;
-
     if (!name || !price || stock === undefined) {
         return res.status(400).json({ message: 'Name, price, and stock are required.' });
     }
-
     try {
         const product = await prisma.product.create({
             data: {
-                name: name as string,
-                description: description as string,
-                price: parseFloat(price as string),
-                stock: parseInt(stock as string),
-                imageUrl: imageUrl as string,
+                name: name,
+                description: description,
+                price: parseFloat(price),
+                stock: parseInt(stock),
+                imageUrl: imageUrl,
             },
         });
-        // Write admin log if available
-        try {
-            const adminId = (req as AuthRequest).admin?.id;
-            if (adminId) {
-                await writeAdminLog(adminId, 'CREATE_PRODUCT', 'PRODUCTS', `Created product ${product.name}`, req.ip, (req.headers['user-agent'] as string) || undefined);
-            }
-        } catch (e) {
-            console.error('Failed to write admin log for product create', e);
-        }
         res.status(201).json({ message: 'Product created successfully', product });
-    } catch (error: any) {
+    }
+    catch (error) {
         if (error.code === 'P2002') {
             return res.status(400).json({ message: 'Product name already exists.' });
         }
         res.status(500).json({ message: 'Failed to create product.', error: error.message });
     }
 };
-
 // 4. Update product (Admin only)
-export const updateProduct = async (req: Request, res: Response) => {
+export const updateProduct = async (req, res) => {
     const { id } = req.params;
     const { name, description, price, stock, imageUrl, isAvailable } = req.body;
-
-    const productId = parseInt(id as string);
+    const productId = parseInt(id);
     if (isNaN(productId)) {
         return res.status(400).json({ message: 'Invalid product ID.' });
     }
-
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name as string;
-    if (description !== undefined) updateData.description = description as string;
-    if (price !== undefined) updateData.price = parseFloat(price as string);
-    if (stock !== undefined) updateData.stock = parseInt(stock as string);
-    if (imageUrl !== undefined) updateData.imageUrl = imageUrl as string;
-    if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
-
+    const updateData = {};
+    if (name !== undefined)
+        updateData.name = name;
+    if (description !== undefined)
+        updateData.description = description;
+    if (price !== undefined)
+        updateData.price = parseFloat(price);
+    if (stock !== undefined)
+        updateData.stock = parseInt(stock);
+    if (imageUrl !== undefined)
+        updateData.imageUrl = imageUrl;
+    if (isAvailable !== undefined)
+        updateData.isAvailable = isAvailable;
     try {
         const product = await prisma.product.update({
             where: { id: productId },
             data: updateData,
         });
-        // Write admin log if available
-        try {
-            const adminId = (req as AuthRequest).admin?.id;
-            if (adminId) {
-                const changed = Object.keys(updateData).join(', ');
-                await writeAdminLog(adminId, 'UPDATE_PRODUCT', 'PRODUCTS', `Updated product ${product.name} fields: ${changed}`, req.ip, (req.headers['user-agent'] as string) || undefined);
-            }
-        } catch (e) {
-            console.error('Failed to write admin log for product update', e);
-        }
         res.status(200).json({ message: 'Product updated successfully', product });
-    } catch (error: any) {
+    }
+    catch (error) {
         if (error.code === 'P2025') {
             return res.status(404).json({ message: 'Product not found.' });
         }
         res.status(500).json({ message: 'Failed to update product.', error: error.message });
     }
 };
-
 // 5. Delete product (Admin only)
-export const deleteProduct = async (req: Request, res: Response) => {
+export const deleteProduct = async (req, res) => {
     const { id } = req.params;
-    const productId = parseInt(id as string);
+    const productId = parseInt(id);
     if (isNaN(productId)) {
         return res.status(400).json({ message: 'Invalid product ID.' });
     }
@@ -142,20 +119,13 @@ export const deleteProduct = async (req: Request, res: Response) => {
         await prisma.product.delete({
             where: { id: productId },
         });
-        // Write admin log if available
-        try {
-            const adminId = (req as AuthRequest).admin?.id;
-            if (adminId) {
-                await writeAdminLog(adminId, 'DELETE_PRODUCT', 'PRODUCTS', `Deleted product id=${productId}`, req.ip, (req.headers['user-agent'] as string) || undefined);
-            }
-        } catch (e) {
-            console.error('Failed to write admin log for product delete', e);
-        }
         res.status(200).json({ message: 'Product deleted successfully' });
-    } catch (error: any) {
+    }
+    catch (error) {
         if (error.code === 'P2025') {
             return res.status(404).json({ message: 'Product not found.' });
         }
         res.status(500).json({ message: 'Failed to delete product.', error: error.message });
     }
 };
+//# sourceMappingURL=productController.js.map

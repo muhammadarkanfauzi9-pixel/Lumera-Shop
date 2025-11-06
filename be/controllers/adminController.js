@@ -1,30 +1,8 @@
-import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import type { AuthRequest } from '../middleware/auth.js';
-
 const prisma = new PrismaClient();
-
-// Utility: write admin activity log. Non-fatal on failure.
-export const writeAdminLog = async (adminId: number, action: string, module?: string, description?: string, ipAddress?: string, userAgent?: string) => {
-    try {
-        await prisma.adminLog.create({
-            data: {
-                adminId,
-                action,
-                module: module ?? null,
-                description: description ?? '',
-                ipAddress: ipAddress ?? null,
-                userAgent: userAgent ?? null,
-            }
-        });
-    } catch (err) {
-        console.error('[AdminLog] Failed to write admin log:', err);
-    }
-};
-
 // 1. Get admin stats
-export const getAdminStats = async (req: Request, res: Response) => {
+export const getAdminStats = async (req, res) => {
     try {
         const totalUsers = await prisma.user.count();
         const totalProducts = await prisma.product.count();
@@ -38,20 +16,19 @@ export const getAdminStats = async (req: Request, res: Response) => {
             },
         });
         const totalRevenue = totalRevenueResult._sum.totalAmount || 0;
-
         res.status(200).json({
             totalUsers,
             totalProducts,
             totalOrders,
             totalRevenue,
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch admin stats.', error: error.message });
     }
 };
-
 // 2. Get admin profile
-export const getAdminProfile = async (req: AuthRequest, res: Response) => {
+export const getAdminProfile = async (req, res) => {
     try {
         const admin = req.admin;
         if (!admin) {
@@ -64,19 +41,16 @@ export const getAdminProfile = async (req: AuthRequest, res: Response) => {
         if (!adminData) {
             return res.status(404).json({ message: 'Admin not found.' });
         }
-
         // Fetch admin logs for dynamic calculations
         const logs = await prisma.adminLog.findMany({
             where: { adminId: admin.id },
             select: { module: true, createdAt: true },
             orderBy: { createdAt: 'desc' },
         });
-
         // Calculate active modules (distinct modules accessed)
         const activeModules = new Set(logs.map(log => log.module)).size;
-
         // Calculate last accessed modules (latest access per module, top 5)
-        const moduleMap = new Map<string, Date>();
+        const moduleMap = new Map();
         logs.forEach(log => {
             if (log.module && !moduleMap.has(log.module)) {
                 moduleMap.set(log.module, log.createdAt);
@@ -85,7 +59,6 @@ export const getAdminProfile = async (req: AuthRequest, res: Response) => {
         const lastAccessedModules = Array.from(moduleMap.entries())
             .map(([module, createdAt]) => ({ module, createdAt }))
             .slice(0, 5);
-
         // Calculate average active time (hours per day based on log activity)
         let averageActiveTime = adminData.averageActiveTime;
         if (logs.length > 0) {
@@ -94,7 +67,6 @@ export const getAdminProfile = async (req: AuthRequest, res: Response) => {
             const daysDiff = Math.max((lastLog.getTime() - firstLog.getTime()) / (1000 * 60 * 60 * 24), 1);
             averageActiveTime = logs.length / daysDiff; // logs per day, approximate as hours
         }
-
         // Get recent logs (last 10)
         const recentLogs = logs.slice(0, 10).map(log => ({
             action: 'Access',
@@ -102,7 +74,6 @@ export const getAdminProfile = async (req: AuthRequest, res: Response) => {
             description: `Accessed ${log.module} module`,
             createdAt: log.createdAt.toISOString(),
         }));
-
         res.status(200).json({
             admin: {
                 id: adminData.id,
@@ -123,13 +94,13 @@ export const getAdminProfile = async (req: AuthRequest, res: Response) => {
                 createdAt: item.createdAt.toISOString(),
             })),
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch admin profile.', error: error.message });
     }
 };
-
 // 3. Update admin profile
-export const updateAdminProfile = async (req: AuthRequest, res: Response) => {
+export const updateAdminProfile = async (req, res) => {
     try {
         const admin = req.admin;
         if (!admin) {
@@ -141,20 +112,14 @@ export const updateAdminProfile = async (req: AuthRequest, res: Response) => {
             data: { name, email, profileImageUrl },
             select: { id: true, name: true, email: true, profileImageUrl: true },
         });
-        // Log admin profile update
-        try {
-            await writeAdminLog(admin.id, 'UPDATE_PROFILE', 'PROFILE', `Updated profile fields: ${Object.keys({name, email, profileImageUrl}).filter(k => (req.body as any)[k] !== undefined).join(', ')}`, req.ip, (req.headers['user-agent'] as string) || undefined);
-        } catch (e) {
-            console.error('Failed to write admin log for profile update', e);
-        }
         res.status(200).json(updatedAdmin);
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to update admin profile.', error: error.message });
     }
 };
-
 // 4. Update admin password
-export const updateAdminPassword = async (req: AuthRequest, res: Response) => {
+export const updateAdminPassword = async (req, res) => {
     try {
         const admin = req.admin;
         if (!admin) {
@@ -176,27 +141,19 @@ export const updateAdminPassword = async (req: AuthRequest, res: Response) => {
             where: { id: admin.id },
             data: { password: hashedPassword },
         });
-        // Log password change
-        try {
-            await writeAdminLog(admin.id, 'CHANGE_PASSWORD', 'PROFILE', 'Admin changed password', req.ip, (req.headers['user-agent'] as string) || undefined);
-        } catch (e) {
-            console.error('Failed to write admin log for password change', e);
-        }
-
         res.status(200).json({ message: 'Password updated successfully.' });
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to update admin password.', error: error.message });
     }
 };
-
 // 9. Get today's sales data
-export const getTodaySales = async (req: Request, res: Response) => {
+export const getTodaySales = async (req, res) => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-
         // Total sales today
         const totalSalesResult = await prisma.order.aggregate({
             _sum: {
@@ -211,7 +168,6 @@ export const getTodaySales = async (req: Request, res: Response) => {
             },
         });
         const totalSales = totalSalesResult._sum.totalAmount || 0;
-
         // Total orders today
         const totalOrders = await prisma.order.count({
             where: {
@@ -221,10 +177,8 @@ export const getTodaySales = async (req: Request, res: Response) => {
                 },
             },
         });
-
         // Average order value
         const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
-
         // Top products today
         const topProducts = await prisma.orderItem.groupBy({
             by: ['productId'],
@@ -248,23 +202,19 @@ export const getTodaySales = async (req: Request, res: Response) => {
             },
             take: 5,
         });
-
         // Get product details for top products
-        const topProductsWithDetails = await Promise.all(
-            topProducts.map(async (item) => {
-                const product = await prisma.product.findUnique({
-                    where: { id: item.productId },
-                    select: { name: true },
-                });
-                return {
-                    id: item.productId,
-                    name: product?.name || 'Unknown Product',
-                    sales: item._sum.quantity || 0,
-                    revenue: item._sum.subtotal || 0,
-                };
-            })
-        );
-
+        const topProductsWithDetails = await Promise.all(topProducts.map(async (item) => {
+            const product = await prisma.product.findUnique({
+                where: { id: item.productId },
+                select: { name: true },
+            });
+            return {
+                id: item.productId,
+                name: product?.name || 'Unknown Product',
+                sales: item._sum.quantity || 0,
+                revenue: item._sum.subtotal || 0,
+            };
+        }));
         // Hourly sales (simplified - group by hour)
         const hourlySales = [];
         for (let hour = 0; hour < 24; hour++) {
@@ -272,7 +222,6 @@ export const getTodaySales = async (req: Request, res: Response) => {
             hourStart.setHours(hour, 0, 0, 0);
             const hourEnd = new Date(hourStart);
             hourEnd.setHours(hour + 1, 0, 0, 0);
-
             const hourResult = await prisma.order.aggregate({
                 _sum: {
                     totalAmount: true,
@@ -285,13 +234,11 @@ export const getTodaySales = async (req: Request, res: Response) => {
                     },
                 },
             });
-
             hourlySales.push({
                 hour,
                 sales: hourResult._sum.totalAmount || 0,
             });
         }
-
         // Recent orders today
         const recentOrders = await prisma.order.findMany({
             where: {
@@ -308,7 +255,6 @@ export const getTodaySales = async (req: Request, res: Response) => {
             orderBy: { orderDate: 'desc' },
             take: 10,
         });
-
         const formattedRecentOrders = recentOrders.map(order => ({
             id: order.id,
             customerName: order.user.name,
@@ -318,7 +264,6 @@ export const getTodaySales = async (req: Request, res: Response) => {
                 minute: '2-digit'
             }),
         }));
-
         res.status(200).json({
             totalSales,
             totalOrders,
@@ -327,19 +272,18 @@ export const getTodaySales = async (req: Request, res: Response) => {
             hourlySales,
             recentOrders: formattedRecentOrders,
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch today\'s sales data.', error: error.message });
     }
 };
-
 // 10. Get new orders today
-export const getNewOrdersToday = async (req: Request, res: Response) => {
+export const getNewOrdersToday = async (req, res) => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-
         const orders = await prisma.order.findMany({
             where: {
                 orderDate: {
@@ -359,7 +303,6 @@ export const getNewOrdersToday = async (req: Request, res: Response) => {
             },
             orderBy: { orderDate: 'desc' },
         });
-
         const formattedOrders = orders.map(order => ({
             id: order.id,
             customerName: order.user.name,
@@ -377,15 +320,14 @@ export const getNewOrdersToday = async (req: Request, res: Response) => {
                 price: item.product.price,
             })),
         }));
-
         res.status(200).json(formattedOrders);
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch new orders today.', error: error.message });
     }
 };
-
 // 11. Get total revenue data
-export const getTotalRevenue = async (req: Request, res: Response) => {
+export const getTotalRevenue = async (req, res) => {
     try {
         // Total revenue all time
         const totalRevenueResult = await prisma.order.aggregate({
@@ -397,17 +339,14 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
             },
         });
         const totalRevenue = totalRevenueResult._sum.totalAmount || 0;
-
         // Monthly revenue for last 12 months
         const monthlyRevenue = [];
         for (let i = 11; i >= 0; i--) {
             const monthStart = new Date();
             monthStart.setMonth(monthStart.getMonth() - i, 1);
             monthStart.setHours(0, 0, 0, 0);
-
             const monthEnd = new Date(monthStart);
             monthEnd.setMonth(monthEnd.getMonth() + 1);
-
             const monthResult = await prisma.order.aggregate({
                 _sum: {
                     totalAmount: true,
@@ -420,11 +359,9 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
                     },
                 },
             });
-
             const monthName = monthStart.toLocaleString('default', { month: 'short' });
             const prevMonthStart = new Date(monthStart);
             prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
-
             const prevMonthResult = await prisma.order.aggregate({
                 _sum: {
                     totalAmount: true,
@@ -437,28 +374,23 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
                     },
                 },
             });
-
             const current = monthResult._sum.totalAmount || 0;
             const previous = prevMonthResult._sum.totalAmount || 0;
             const growth = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-
             monthlyRevenue.push({
                 month: monthName,
                 revenue: current,
                 growth: Math.round(growth * 100) / 100,
             });
         }
-
         // Yearly revenue for last 5 years
         const yearlyRevenue = [];
         for (let i = 4; i >= 0; i--) {
             const yearStart = new Date();
             yearStart.setFullYear(yearStart.getFullYear() - i, 0, 1);
             yearStart.setHours(0, 0, 0, 0);
-
             const yearEnd = new Date(yearStart);
             yearEnd.setFullYear(yearEnd.getFullYear() + 1);
-
             const yearResult = await prisma.order.aggregate({
                 _sum: {
                     totalAmount: true,
@@ -471,13 +403,11 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
                     },
                 },
             });
-
             yearlyRevenue.push({
                 year: yearStart.getFullYear().toString(),
                 revenue: yearResult._sum.totalAmount || 0,
             });
         }
-
         // Top revenue products (all time)
         const topRevenueProducts = await prisma.orderItem.groupBy({
             by: ['productId'],
@@ -496,31 +426,25 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
             },
             take: 10,
         });
-
         const totalRevenueForPercentage = totalRevenue;
-
-        const topProductsWithDetails = await Promise.all(
-            topRevenueProducts.map(async (item) => {
-                const product = await prisma.product.findUnique({
-                    where: { id: item.productId },
-                    select: { name: true },
-                });
-                const revenue = item._sum.subtotal || 0;
-                return {
-                    id: item.productId,
-                    name: product?.name || 'Unknown Product',
-                    revenue,
-                    percentage: totalRevenueForPercentage > 0 ? (revenue / totalRevenueForPercentage) * 100 : 0,
-                };
-            })
-        );
-
+        const topProductsWithDetails = await Promise.all(topRevenueProducts.map(async (item) => {
+            const product = await prisma.product.findUnique({
+                where: { id: item.productId },
+                select: { name: true },
+            });
+            const revenue = item._sum.subtotal || 0;
+            return {
+                id: item.productId,
+                name: product?.name || 'Unknown Product',
+                revenue,
+                percentage: totalRevenueForPercentage > 0 ? (revenue / totalRevenueForPercentage) * 100 : 0,
+            };
+        }));
         // Revenue by category (simplified - assuming categories from product names)
         const revenueByCategory = [
             { category: 'Makanan Asin', revenue: totalRevenue * 0.6, percentage: 60 },
             { category: 'Dessert', revenue: totalRevenue * 0.4, percentage: 40 },
         ];
-
         res.status(200).json({
             totalRevenue,
             monthlyRevenue,
@@ -528,20 +452,18 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
             topRevenueProducts: topProductsWithDetails,
             revenueByCategory,
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch total revenue data.', error: error.message });
     }
 };
-
 // 12. Get reviews data
-export const getReviews = async (req: Request, res: Response) => {
+export const getReviews = async (req, res) => {
     try {
         // Since there's no Review model in schema, return placeholder data
-        const reviews: any[] = [];
-
+        const reviews = [];
         const totalReviews = reviews.length;
         const averageRating = 0;
-
         // Rating distribution
         const ratingDistribution = {
             1: 0,
@@ -550,10 +472,8 @@ export const getReviews = async (req: Request, res: Response) => {
             4: 0,
             5: 0,
         };
-
         // Recent reviews (last 20)
-        const recentReviews: any[] = [];
-
+        const recentReviews = [];
         res.status(200).json({
             stats: {
                 totalReviews,
@@ -563,64 +483,9 @@ export const getReviews = async (req: Request, res: Response) => {
             },
             reviews: recentReviews,
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         res.status(500).json({ message: 'Failed to fetch reviews data.', error: error.message });
     }
 };
-
-// 13. Get admin logs / riwayat lengkap (supports pagination and filters)
-export const getAdminLogs = async (req: AuthRequest, res: Response) => {
-    try {
-        const admin = req.admin;
-        if (!admin) {
-            return res.status(401).json({ message: 'Unauthorized.' });
-        }
-
-        const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
-        const limit = Math.min(parseInt((req.query.limit as string) || '20', 10), 100);
-        const skip = (page - 1) * limit;
-
-        const moduleFilter = req.query.module as string | undefined;
-        const actionFilter = req.query.action as string | undefined;
-        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
-        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
-
-        // Build dynamic where clause
-        const where: any = { adminId: admin.id };
-        if (moduleFilter) where.module = { contains: moduleFilter, mode: 'insensitive' };
-        if (actionFilter) where.action = { contains: actionFilter, mode: 'insensitive' };
-        if (startDate || endDate) {
-            where.createdAt = {} as any;
-            if (startDate) where.createdAt.gte = startDate;
-            if (endDate) where.createdAt.lte = endDate;
-        }
-
-        const total = await prisma.adminLog.count({ where });
-
-        const logs = await prisma.adminLog.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limit,
-        });
-
-        const formatted = logs.map(l => ({
-            id: l.id,
-            action: l.action,
-            module: l.module,
-            description: l.description,
-            ipAddress: l.ipAddress,
-            userAgent: l.userAgent,
-            createdAt: l.createdAt.toISOString(),
-        }));
-
-        res.status(200).json({
-            total,
-            page,
-            limit,
-            logs: formatted,
-        });
-    } catch (error: any) {
-        res.status(500).json({ message: 'Failed to fetch admin logs.', error: error.message });
-    }
-};
+//# sourceMappingURL=adminController.js.map
