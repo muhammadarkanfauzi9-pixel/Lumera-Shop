@@ -5,6 +5,21 @@ import { writeAdminLog } from './adminController.js';
 
 const prisma = new PrismaClient();
 
+interface Rating {
+    id: number;
+    productId: number;
+    userId: number | null;
+    value: number;
+    comment: string | null;
+    createdAt: Date;
+}
+
+interface RatingWithProduct extends Rating {
+    product: {
+        name: string;
+    };
+}
+
 // 1. Get all products (for user dashboard)
 export const getProducts = async (req: Request, res: Response) => {
     try {
@@ -28,7 +43,7 @@ export const getProducts = async (req: Request, res: Response) => {
 // 2. Get product by ID
 export const getProductById = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const productId = parseInt(id);
+    const productId = parseInt(id as string);
     if (isNaN(productId)) {
         return res.status(400).json({ message: 'Invalid product ID.' });
     }
@@ -47,9 +62,104 @@ export const getProductById = async (req: Request, res: Response) => {
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' });
         }
-        res.status(200).json(product);
+        // compute rating aggregates (guard in case Rating model/table doesn't exist yet)
+        try {
+            const ratingAgg = await prisma.rating.aggregate({
+                where: { productId },
+                _avg: { value: true },
+                _count: { _all: true }
+            });
+
+            const avgRating = ratingAgg._avg?.value || 0;
+            const ratingCount = ratingAgg._count?._all || 0;
+
+            res.status(200).json({ ...product, averageRating: Math.round((avgRating + Number.EPSILON) * 100) / 100, ratingCount });
+        } catch (ratingErr: any) {
+            console.error('[getProductById] Rating aggregation failed, returning product without ratings:', ratingErr?.message ?? ratingErr);
+            res.status(200).json({ ...product, averageRating: 0, ratingCount: 0 });
+        }
     } catch (error: any) {
         res.status(500).json({ message: 'Failed to fetch product.', error: error.message });
+    }
+};
+
+// Submit a rating for a product (public)
+export const submitRating = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const productId = parseInt(id as string);
+    if (isNaN(productId)) return res.status(400).json({ message: 'Invalid product ID.' });
+
+    const { value, comment } = req.body;
+    const ratingValue = parseInt(value);
+    if (!ratingValue || ratingValue < 1 || ratingValue > 5) {
+        return res.status(400).json({ message: 'Rating value must be between 1 and 5.' });
+    }
+
+    try {
+        // optional: if user is authenticated, attach user id
+        const userId = (req as any).user?.id || undefined;
+
+        const rating = await prisma.rating.create({
+            data: {
+                productId,
+                userId,
+                value: ratingValue,
+                comment: comment || undefined,
+            }
+        });
+
+        // respond with new aggregates (guard if rating table missing)
+        try {
+            const ratingAgg = await prisma.rating.aggregate({
+                where: { productId },
+                _avg: { value: true },
+                _count: { _all: true }
+            });
+            const avgRating = ratingAgg._avg?.value || 0;
+            const ratingCount = ratingAgg._count?._all || 0;
+            res.status(201).json({ message: 'Rating submitted', rating, averageRating: Math.round((avgRating + Number.EPSILON) * 100) / 100, ratingCount });
+        } catch (ratingErr: any) {
+            console.error('[submitRating] Post-rating aggregation failed, returning created rating only:', ratingErr?.message ?? ratingErr);
+            res.status(201).json({ message: 'Rating submitted', rating, averageRating: 0, ratingCount: 0 });
+        }
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to submit rating.', error: error.message });
+    }
+};
+
+// Get reviews for a product
+export const getProductReviews = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const productId = parseInt(id as string);
+    if (isNaN(productId)) {
+        return res.status(400).json({ message: 'Invalid product ID.' });
+    }
+
+    try {
+        // Get all ratings with comments for this product
+        const productReviews = await prisma.$queryRaw<Array<Rating & { userName: string | null }>>`
+            SELECT r.*, u.name as "userName"
+            FROM "Rating" r
+            LEFT JOIN "User" u ON r."userId" = u.id
+            WHERE r."productId" = ${productId}
+            AND r.comment IS NOT NULL
+            ORDER BY r."createdAt" DESC
+        `;
+
+        // Transform into reviews format
+        const reviews = productReviews.map(r => ({
+            id: r.id,
+            customerName: r.userName || 'Anonymous',
+            rating: r.value,
+            comment: r.comment,
+            createdAt: r.createdAt.toISOString(),
+            isVerified: r.userId !== null
+        }));
+
+        res.status(200).json({ reviews });
+    } catch (error: any) {
+        console.error('[getProductReviews] Error:', error);
+        res.status(500).json({ message: 'Failed to fetch product reviews.', error: error.message });
     }
 };
 

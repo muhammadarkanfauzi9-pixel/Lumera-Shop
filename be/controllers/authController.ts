@@ -54,6 +54,15 @@ export const login = async (req: Request, res: Response) => {
             );
 
             const { password: _, ...userData } = user;
+            // Set httpOnly cookie for user token (safer for server-side proxy)
+            res.cookie('userToken', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                path: '/',
+            });
+
             res.status(200).json({
                 token,
                 user: { ...userData, type: 'user' },
@@ -84,6 +93,15 @@ export const login = async (req: Request, res: Response) => {
         } catch (e) {
             console.error('Failed to write admin log for login', e);
         }
+
+        // Set httpOnly cookie for admin token
+        res.cookie('adminToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000, // 1 day
+            path: '/',
+        });
 
         res.status(200).json({
             token,

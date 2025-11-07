@@ -69,6 +69,15 @@ export const loginUser = async (req: Request, res: Response) => {
 
         // Kirim token dan data user (tanpa password)
         const { password: _, ...userData } = user;
+        // Set httpOnly cookie for user token
+        res.cookie('userToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/',
+        });
+
         res.status(200).json({
             token,
             user: userData,

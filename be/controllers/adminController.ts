@@ -39,13 +39,58 @@ export const getAdminStats = async (req: Request, res: Response) => {
         });
         const totalRevenue = totalRevenueResult._sum.totalAmount || 0;
 
+        // Rating stats: overall average rating and top-rated products
+        let overallAverageRating = 0;
+        let totalRatings = 0;
+        let topRatedProducts: any[] = [];
+        try {
+            const ratingAgg = await prisma.rating.aggregate({
+                _avg: { value: true },
+                _count: { _all: true }
+            });
+
+            overallAverageRating = ratingAgg._avg?.value || 0;
+            totalRatings = ratingAgg._count?._all || 0;
+
+            // Top-rated products (by average rating, min 1 rating)
+            const topRated = await prisma.rating.groupBy({
+                by: ['productId'],
+                _avg: { value: true },
+                _count: { _all: true },
+                orderBy: { _avg: { value: 'desc' } },
+                where: {},
+                take: 5,
+            });
+
+            topRatedProducts = await Promise.all(topRated.map(async (t: any) => {
+                const p = await prisma.product.findUnique({ where: { id: t.productId }, select: { name: true } });
+                return {
+                    productId: t.productId,
+                    name: p?.name || 'Unknown',
+                    average: Math.round((t._avg?.value || 0) * 100) / 100,
+                    ratingsCount: t._count?._all || 0,
+                };
+            }));
+        } catch (ratingErr: any) {
+            console.error('[getAdminStats] Rating aggregation failed, returning defaults:', ratingErr?.message ?? ratingErr);
+            overallAverageRating = 0;
+            totalRatings = 0;
+            topRatedProducts = [];
+        }
+
         res.status(200).json({
             totalUsers,
             totalProducts,
             totalOrders,
             totalRevenue,
+            ratingStats: {
+                overallAverageRating: Math.round((overallAverageRating + Number.EPSILON) * 100) / 100,
+                totalRatings,
+                topRatedProducts,
+            },
         });
     } catch (error: any) {
+        console.error('[getAdminStats] Error fetching admin stats:', error);
         res.status(500).json({ message: 'Failed to fetch admin stats.', error: error.message });
     }
 };
@@ -533,16 +578,56 @@ export const getTotalRevenue = async (req: Request, res: Response) => {
     }
 };
 
+// Types for ratings with product info
+interface RatingWithProduct {
+    id: number;
+    productId: number;
+    userId: number | null;
+    value: number;
+    comment: string | null;
+    createdAt: Date;
+    productName: string;
+}
+
+interface UserInfo {
+    id: number;
+    name: string;
+    email: string;
+}
+
 // 12. Get reviews data
 export const getReviews = async (req: Request, res: Response) => {
     try {
-        // Since there's no Review model in schema, return placeholder data
-        const reviews: any[] = [];
+        // Fetch all ratings with comments and their associated products and users
+        const allRatings = await prisma.$queryRaw<RatingWithProduct[]>`
+            SELECT r.*, p.name as "productName"
+            FROM "Rating" r
+            INNER JOIN "Product" p ON r."productId" = p.id
+            WHERE r.comment IS NOT NULL
+            ORDER BY r."createdAt" DESC
+        `;
 
-        const totalReviews = reviews.length;
-        const averageRating = 0;
+        // Fetch user details in parallel for performance
+        const userIds = allRatings.filter(r => r.userId !== null).map(r => r.userId!);
+        const users = userIds.length > 0 ? await prisma.user.findMany({
+            where: {
+                id: { in: userIds }
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true
+            }
+        }) : [];
 
-        // Rating distribution
+        const userMap = new Map(users.map(u => [u.id, u] as [number, UserInfo]));
+
+        // Calculate stats
+        const totalReviews = allRatings.length;
+        const totalRatingValue = allRatings.reduce((sum: number, r: RatingWithProduct) => sum + r.value, 0);
+        const averageRating = totalReviews > 0 ? totalRatingValue / totalReviews : 0;
+
+        // Calculate rating distribution
         const ratingDistribution = {
             1: 0,
             2: 0,
@@ -550,20 +635,37 @@ export const getReviews = async (req: Request, res: Response) => {
             4: 0,
             5: 0,
         };
+        
+        allRatings.forEach((rating: RatingWithProduct) => {
+            ratingDistribution[rating.value as 1|2|3|4|5]++;
+        });
 
-        // Recent reviews (last 20)
-        const recentReviews: any[] = [];
+        // Transform ratings into review objects
+        const reviews = allRatings.map((rating: RatingWithProduct) => ({
+            id: rating.id,
+            customerName: rating.userId ? userMap.get(rating.userId)?.name || 'Anonymous' : 'Anonymous',
+            customerEmail: rating.userId ? userMap.get(rating.userId)?.email || null : null,
+            productName: rating.productName,
+            productId: rating.productId,
+            rating: rating.value,
+            comment: rating.comment,
+            createdAt: rating.createdAt.toISOString(),
+            isVerified: rating.userId !== null,  // Consider verified if user is logged in
+            helpful: 0, // Placeholder for future feature
+            notHelpful: 0 // Placeholder for future feature
+        }));
 
         res.status(200).json({
             stats: {
                 totalReviews,
                 averageRating: Math.round(averageRating * 10) / 10,
                 ratingDistribution,
-                recentReviews,
+                recentReviews: reviews.slice(0, 5) // Get 5 most recent reviews
             },
-            reviews: recentReviews,
+            reviews
         });
     } catch (error: any) {
+        console.error('Error fetching reviews:', error);
         res.status(500).json({ message: 'Failed to fetch reviews data.', error: error.message });
     }
 };

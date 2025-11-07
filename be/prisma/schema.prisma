@@ -72,6 +72,7 @@ model Product {
   isAvailable Boolean   @default(true) // Untuk mengontrol apakah produk tampil di FE
   imageUrl    String?   // URL gambar produk
   orderItems  OrderItem[]
+  ratings     Rating[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -112,6 +113,19 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
   createdAt DateTime @default(now())
+}
+
+// Model untuk menyimpan rating produk
+model Rating {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  userId     Int?     // optional, guests may rate without user account
+  value      Int      // 1..5
+  comment    String?  // optional review text
+  createdAt  DateTime @default(now())
+
+  product    Product  @relation(fields: [productId], references: [id])
+  // no relation to User enforced here (optional)
 }
 
 // ----------------------------------------------------
