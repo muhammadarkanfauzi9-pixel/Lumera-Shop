@@ -1,6 +1,24 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
+// Utility: write admin activity log. Non-fatal on failure.
+export const writeAdminLog = async (adminId, action, module, description, ipAddress, userAgent) => {
+    try {
+        await prisma.adminLog.create({
+            data: {
+                adminId,
+                action,
+                module: module ?? null,
+                description: description ?? '',
+                ipAddress: ipAddress ?? null,
+                userAgent: userAgent ?? null,
+            }
+        });
+    }
+    catch (err) {
+        console.error('[AdminLog] Failed to write admin log:', err);
+    }
+};
 // 1. Get admin stats
 export const getAdminStats = async (req, res) => {
     try {
@@ -16,14 +34,112 @@ export const getAdminStats = async (req, res) => {
             },
         });
         const totalRevenue = totalRevenueResult._sum.totalAmount || 0;
+        // Today's sales data (matching getTodaySales logic)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const todaySalesResult = await prisma.order.aggregate({
+            _sum: {
+                totalAmount: true,
+            },
+            where: {
+                paymentStatus: 'COMPLETED',
+                orderDate: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+            },
+        });
+        const todaySales = todaySalesResult._sum.totalAmount || 0;
+        // New orders today (matching getNewOrdersToday logic)
+        const newOrdersToday = await prisma.order.count({
+            where: {
+                orderDate: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+            },
+        });
+        // Monthly sales for last 12 months
+        const monthlySales = [];
+        for (let i = 11; i >= 0; i--) {
+            const monthStart = new Date();
+            monthStart.setMonth(monthStart.getMonth() - i, 1);
+            monthStart.setHours(0, 0, 0, 0);
+            const monthEnd = new Date(monthStart);
+            monthEnd.setMonth(monthEnd.getMonth() + 1);
+            const monthResult = await prisma.order.aggregate({
+                _sum: {
+                    totalAmount: true,
+                },
+                where: {
+                    paymentStatus: 'COMPLETED',
+                    orderDate: {
+                        gte: monthStart,
+                        lt: monthEnd,
+                    },
+                },
+            });
+            const monthName = monthStart.toLocaleString('default', { month: 'short' });
+            monthlySales.push({
+                month: monthName,
+                sales: monthResult._sum?.totalAmount || 0,
+            });
+        }
+        // Rating stats: overall average rating and top-rated products
+        let overallAverageRating = 0;
+        let totalRatings = 0;
+        let topRatedProducts = [];
+        try {
+            const ratingAgg = await prisma.rating.aggregate({
+                _avg: { value: true },
+                _count: { _all: true }
+            });
+            overallAverageRating = ratingAgg._avg?.value || 0;
+            totalRatings = ratingAgg._count?._all || 0;
+            // Top-rated products (by average rating, min 1 rating)
+            const topRated = await prisma.rating.groupBy({
+                by: ['productId'],
+                _avg: { value: true },
+                _count: { _all: true },
+                orderBy: { _avg: { value: 'desc' } },
+                where: {},
+                take: 5,
+            });
+            topRatedProducts = await Promise.all(topRated.map(async (t) => {
+                const p = await prisma.product.findUnique({ where: { id: t.productId }, select: { name: true } });
+                return {
+                    productId: t.productId,
+                    name: p?.name || 'Unknown',
+                    average: Math.round((t._avg?.value || 0) * 100) / 100,
+                    ratingsCount: t._count?._all || 0,
+                };
+            }));
+        }
+        catch (ratingErr) {
+            console.error('[getAdminStats] Rating aggregation failed, returning defaults:', ratingErr?.message ?? ratingErr);
+            overallAverageRating = 0;
+            totalRatings = 0;
+            topRatedProducts = [];
+        }
         res.status(200).json({
             totalUsers,
             totalProducts,
             totalOrders,
             totalRevenue,
+            todaySales,
+            newOrdersToday,
+            monthlySales,
+            ratingStats: {
+                overallAverageRating: Math.round((overallAverageRating + Number.EPSILON) * 100) / 100,
+                totalRatings,
+                topRatedProducts,
+            },
         });
     }
     catch (error) {
+        console.error('[getAdminStats] Error fetching admin stats:', error);
         res.status(500).json({ message: 'Failed to fetch admin stats.', error: error.message });
     }
 };
@@ -112,6 +228,13 @@ export const updateAdminProfile = async (req, res) => {
             data: { name, email, profileImageUrl },
             select: { id: true, name: true, email: true, profileImageUrl: true },
         });
+        // Log admin profile update
+        try {
+            await writeAdminLog(admin.id, 'UPDATE_PROFILE', 'PROFILE', `Updated profile fields: ${Object.keys({ name, email, profileImageUrl }).filter(k => req.body[k] !== undefined).join(', ')}`, req.ip, req.headers['user-agent'] || undefined);
+        }
+        catch (e) {
+            console.error('Failed to write admin log for profile update', e);
+        }
         res.status(200).json(updatedAdmin);
     }
     catch (error) {
@@ -141,6 +264,13 @@ export const updateAdminPassword = async (req, res) => {
             where: { id: admin.id },
             data: { password: hashedPassword },
         });
+        // Log password change
+        try {
+            await writeAdminLog(admin.id, 'CHANGE_PASSWORD', 'PROFILE', 'Admin changed password', req.ip, req.headers['user-agent'] || undefined);
+        }
+        catch (e) {
+            console.error('Failed to write admin log for password change', e);
+        }
         res.status(200).json({ message: 'Password updated successfully.' });
     }
     catch (error) {
@@ -460,11 +590,32 @@ export const getTotalRevenue = async (req, res) => {
 // 12. Get reviews data
 export const getReviews = async (req, res) => {
     try {
-        // Since there's no Review model in schema, return placeholder data
-        const reviews = [];
-        const totalReviews = reviews.length;
-        const averageRating = 0;
-        // Rating distribution
+        // Fetch all ratings with comments and their associated products and users
+        const allRatings = await prisma.$queryRaw `
+            SELECT r.*, p.name as "productName"
+            FROM "Rating" r
+            INNER JOIN "Product" p ON r."productId" = p.id
+            WHERE r.comment IS NOT NULL
+            ORDER BY r."createdAt" DESC
+        `;
+        // Fetch user details in parallel for performance
+        const userIds = allRatings.filter(r => r.userId !== null).map(r => r.userId);
+        const users = userIds.length > 0 ? await prisma.user.findMany({
+            where: {
+                id: { in: userIds }
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true
+            }
+        }) : [];
+        const userMap = new Map(users.map(u => [u.id, u]));
+        // Calculate stats
+        const totalReviews = allRatings.length;
+        const totalRatingValue = allRatings.reduce((sum, r) => sum + r.value, 0);
+        const averageRating = totalReviews > 0 ? totalRatingValue / totalReviews : 0;
+        // Calculate rating distribution
         const ratingDistribution = {
             1: 0,
             2: 0,
@@ -472,20 +623,90 @@ export const getReviews = async (req, res) => {
             4: 0,
             5: 0,
         };
-        // Recent reviews (last 20)
-        const recentReviews = [];
+        allRatings.forEach((rating) => {
+            ratingDistribution[rating.value]++;
+        });
+        // Transform ratings into review objects
+        const reviews = allRatings.map((rating) => ({
+            id: rating.id,
+            customerName: rating.userId ? userMap.get(rating.userId)?.name || 'Anonymous' : 'Anonymous',
+            customerEmail: rating.userId ? userMap.get(rating.userId)?.email || null : null,
+            productName: rating.productName,
+            productId: rating.productId,
+            rating: rating.value,
+            comment: rating.comment,
+            createdAt: rating.createdAt.toISOString(),
+            isVerified: rating.userId !== null, // Consider verified if user is logged in
+            helpful: 0, // Placeholder for future feature
+            notHelpful: 0 // Placeholder for future feature
+        }));
         res.status(200).json({
             stats: {
                 totalReviews,
                 averageRating: Math.round(averageRating * 10) / 10,
                 ratingDistribution,
-                recentReviews,
+                recentReviews: reviews.slice(0, 5) // Get 5 most recent reviews
             },
-            reviews: recentReviews,
+            reviews
         });
     }
     catch (error) {
+        console.error('Error fetching reviews:', error);
         res.status(500).json({ message: 'Failed to fetch reviews data.', error: error.message });
+    }
+};
+// 13. Get admin logs / riwayat lengkap (supports pagination and filters)
+export const getAdminLogs = async (req, res) => {
+    try {
+        const admin = req.admin;
+        if (!admin) {
+            return res.status(401).json({ message: 'Unauthorized.' });
+        }
+        const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+        const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
+        const skip = (page - 1) * limit;
+        const moduleFilter = req.query.module;
+        const actionFilter = req.query.action;
+        const startDate = req.query.startDate ? new Date(req.query.startDate) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate) : undefined;
+        // Build dynamic where clause
+        const where = { adminId: admin.id };
+        if (moduleFilter)
+            where.module = { contains: moduleFilter, mode: 'insensitive' };
+        if (actionFilter)
+            where.action = { contains: actionFilter, mode: 'insensitive' };
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate)
+                where.createdAt.gte = startDate;
+            if (endDate)
+                where.createdAt.lte = endDate;
+        }
+        const total = await prisma.adminLog.count({ where });
+        const logs = await prisma.adminLog.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+        });
+        const formatted = logs.map(l => ({
+            id: l.id,
+            action: l.action,
+            module: l.module,
+            description: l.description,
+            ipAddress: l.ipAddress,
+            userAgent: l.userAgent,
+            createdAt: l.createdAt.toISOString(),
+        }));
+        res.status(200).json({
+            total,
+            page,
+            limit,
+            logs: formatted,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Failed to fetch admin logs.', error: error.message });
     }
 };
 //# sourceMappingURL=adminController.js.map

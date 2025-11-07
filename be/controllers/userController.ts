@@ -128,3 +128,68 @@ export const updateUserProfile = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to update profile.', error: error.message });
     }
 };
+
+// 4. Get user balance (for QRIS simulation)
+export const getUserBalance = async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { balance: true },
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        res.status(200).json({ balance: user.balance });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch balance.', error: error.message });
+    }
+};
+
+// 5. Update user balance (for QRIS simulation - deduct balance after payment)
+export const updateUserBalance = async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    const { amount } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    if (typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount.' });
+    }
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { balance: true },
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        if (user.balance < amount) {
+            return res.status(400).json({ message: 'Insufficient balance.' });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { balance: user.balance - amount },
+        });
+
+        res.status(200).json({
+            message: 'Balance updated successfully',
+            balance: updatedUser.balance
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to update balance.', error: error.message });
+    }
+};

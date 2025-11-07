@@ -63,12 +63,14 @@ async function main() {
       password: await bcrypt.hash('password123', 10),
       name: 'John Doe',
       phone: '081234567890',
+      balance: 100000, // Add balance for QRIS simulation
     },
     {
       email: 'user2@example.com',
       password: await bcrypt.hash('password123', 10),
       name: 'Jane Smith',
       phone: '081234567891',
+      balance: 50000, // Add balance for QRIS simulation
     },
   ];
 

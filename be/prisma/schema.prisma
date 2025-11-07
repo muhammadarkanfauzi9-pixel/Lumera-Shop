@@ -56,6 +56,7 @@ model User {
   phone     String
   address   String?  // Alamat pengguna
   image     String?  // URL foto profil
+  balance   Float    @default(0) // Saldo untuk simulasi pembayaran QRIS
   orders    Order[]  // Relasi ke tabel Order
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

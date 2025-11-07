@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import type { AuthRequest } from '../middleware/auth.js';
 import { writeAdminLog } from './adminController.js';
+import multer from 'multer';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -19,6 +21,19 @@ interface RatingWithProduct extends Rating {
         name: string;
     };
 }
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(process.cwd(), '../fe/public/uploads'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
 
 // 1. Get all products (for user dashboard)
 export const getProducts = async (req: Request, res: Response) => {
@@ -164,40 +179,44 @@ export const getProductReviews = async (req: Request, res: Response) => {
 };
 
 // 3. Create product (Admin only)
-export const createProduct = async (req: Request, res: Response) => {
-    const { name, description, price, stock, imageUrl } = req.body;
+export const createProduct = [
+    upload.single('image'),
+    async (req: Request, res: Response) => {
+        const { name, description, price, stock } = req.body;
+        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    if (!name || !price || stock === undefined) {
-        return res.status(400).json({ message: 'Name, price, and stock are required.' });
-    }
+        if (!name || !price || stock === undefined) {
+            return res.status(400).json({ message: 'Name, price, and stock are required.' });
+        }
 
-    try {
-        const product = await prisma.product.create({
-            data: {
-                name: name as string,
-                description: description as string,
-                price: parseFloat(price as string),
-                stock: parseInt(stock as string),
-                imageUrl: imageUrl as string,
-            },
-        });
-        // Write admin log if available
         try {
-            const adminId = (req as AuthRequest).admin?.id;
-            if (adminId) {
-                await writeAdminLog(adminId, 'CREATE_PRODUCT', 'PRODUCTS', `Created product ${product.name}`, req.ip, (req.headers['user-agent'] as string) || undefined);
+            const product = await prisma.product.create({
+                data: {
+                    name: name as string,
+                    description: description as string,
+                    price: parseFloat(price as string),
+                    stock: parseInt(stock as string),
+                    imageUrl: imageUrl as string,
+                },
+            });
+            // Write admin log if available
+            try {
+                const adminId = (req as AuthRequest).admin?.id;
+                if (adminId) {
+                    await writeAdminLog(adminId, 'CREATE_PRODUCT', 'PRODUCTS', `Created product ${product.name}`, req.ip, (req.headers['user-agent'] as string) || undefined);
+                }
+            } catch (e) {
+                console.error('Failed to write admin log for product create', e);
             }
-        } catch (e) {
-            console.error('Failed to write admin log for product create', e);
+            res.status(201).json({ message: 'Product created successfully', product });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                return res.status(400).json({ message: 'Product name already exists.' });
+            }
+            res.status(500).json({ message: 'Failed to create product.', error: error.message });
         }
-        res.status(201).json({ message: 'Product created successfully', product });
-    } catch (error: any) {
-        if (error.code === 'P2002') {
-            return res.status(400).json({ message: 'Product name already exists.' });
-        }
-        res.status(500).json({ message: 'Failed to create product.', error: error.message });
     }
-};
+];
 
 // 4. Update product (Admin only)
 export const updateProduct = async (req: Request, res: Response) => {

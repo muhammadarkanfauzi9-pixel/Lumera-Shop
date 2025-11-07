@@ -39,6 +39,67 @@ export const getAdminStats = async (req: Request, res: Response) => {
         });
         const totalRevenue = totalRevenueResult._sum.totalAmount || 0;
 
+        // Today's sales data (matching getTodaySales logic)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todaySalesResult = await prisma.order.aggregate({
+            _sum: {
+                totalAmount: true,
+            },
+            where: {
+                paymentStatus: 'COMPLETED',
+                orderDate: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+            },
+        });
+        const todaySales = todaySalesResult._sum.totalAmount || 0;
+
+        // New orders today (matching getNewOrdersToday logic)
+        const newOrdersToday = await prisma.order.count({
+            where: {
+                orderDate: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+            },
+        });
+
+        // Monthly sales for last 12 months
+        const monthlySales = [];
+        for (let i = 11; i >= 0; i--) {
+            const monthStart = new Date();
+            monthStart.setMonth(monthStart.getMonth() - i, 1);
+            monthStart.setHours(0, 0, 0, 0);
+
+            const monthEnd = new Date(monthStart);
+            monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+            const monthResult = await prisma.order.aggregate({
+                _sum: {
+                    totalAmount: true,
+                },
+                where: {
+                    paymentStatus: 'COMPLETED',
+                    orderDate: {
+                        gte: monthStart,
+                        lt: monthEnd,
+                    },
+                },
+            });
+
+            const monthName = monthStart.toLocaleString('default', { month: 'short' });
+
+            monthlySales.push({
+                month: monthName,
+                sales: monthResult._sum?.totalAmount || 0,
+            });
+        }
+
         // Rating stats: overall average rating and top-rated products
         let overallAverageRating = 0;
         let totalRatings = 0;
@@ -83,6 +144,9 @@ export const getAdminStats = async (req: Request, res: Response) => {
             totalProducts,
             totalOrders,
             totalRevenue,
+            todaySales,
+            newOrdersToday,
+            monthlySales,
             ratingStats: {
                 overallAverageRating: Math.round((overallAverageRating + Number.EPSILON) * 100) / 100,
                 totalRatings,

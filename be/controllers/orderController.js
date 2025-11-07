@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { writeAdminLog } from './adminController.js';
 const prisma = new PrismaClient();
 // Helper function to generate WhatsApp message
 const generateWhatsAppMessage = (order) => {
@@ -56,7 +57,8 @@ export const createOrder = async (req, res) => {
                 totalAmount,
                 paymentMethod,
                 paymentStatus: paymentMethod === 'QRIS' ? 'COMPLETED' : 'PENDING',
-                orderStatus: 'PENDING',
+                // For QRIS payments we mark the order as processed immediately
+                orderStatus: paymentMethod === 'QRIS' ? 'PROCESSED' : 'PENDING',
                 expirationTime,
                 items: {
                     create: orderItems,
@@ -175,6 +177,16 @@ export const updatePaymentStatus = async (req, res) => {
                 },
             },
         });
+        // Write admin log if available
+        try {
+            const adminId = req.admin?.id;
+            if (adminId) {
+                await writeAdminLog(adminId, 'UPDATE_PAYMENT_STATUS', 'ORDERS', `Order ${orderId} paymentStatus -> ${paymentStatus}`, req.ip, req.headers['user-agent'] || undefined);
+            }
+        }
+        catch (e) {
+            console.error('Failed to write admin log for payment update', e);
+        }
         res.status(200).json({ message: 'Payment status updated successfully', order: updatedOrder });
     }
     catch (error) {
@@ -214,6 +226,16 @@ export const cancelOrder = async (req, res) => {
                 orderStatus: 'CANCELED',
             },
         });
+        // Write admin log if available
+        try {
+            const adminId = req.admin?.id;
+            if (adminId) {
+                await writeAdminLog(adminId, 'CANCEL_ORDER', 'ORDERS', `Canceled order ${orderId}`, req.ip, req.headers['user-agent'] || undefined);
+            }
+        }
+        catch (e) {
+            console.error('Failed to write admin log for order cancel', e);
+        }
         res.status(200).json({ message: 'Order canceled successfully', order: updatedOrder });
     }
     catch (error) {

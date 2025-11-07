@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
 // Ingat, gunakan .js di TypeScript saat mengimpor relatif!
-import { registerUser, loginUser, updateUserProfile } from '../controllers/userController.js';
+import { registerUser, loginUser, updateUserProfile, getUserBalance, updateUserBalance } from '../controllers/userController.js';
 import { verifyUserToken } from '../middleware/auth.js';
 const prisma = new PrismaClient();
 // Configure multer for file uploads
@@ -55,5 +55,11 @@ router.get('/profile', verifyUserToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch profile.', error: error.message });
     }
 });
+// GET /api/users/balance
+// Get user balance (for QRIS simulation)
+router.get('/balance', verifyUserToken, getUserBalance);
+// PUT /api/users/balance
+// Update user balance (for QRIS simulation - deduct balance after payment)
+router.put('/balance', verifyUserToken, updateUserBalance);
 export default router;
 //# sourceMappingURL=userRoutes.js.map

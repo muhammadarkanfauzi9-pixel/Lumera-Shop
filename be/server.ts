@@ -28,7 +28,10 @@ app.use(cors({
 }));
 
 // 2. Body Parser: Mengizinkan server membaca JSON
-app.use(express.json()); 
+app.use(express.json());
+
+// 3. Static Files: Serve uploaded images
+app.use('/uploads', express.static('../fe/public/uploads'));
 
 // --- Penggunaan Routes ---
 

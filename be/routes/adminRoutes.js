@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { login } from '../controllers/authController.js';
-import { getAdminStats, getAdminProfile, updateAdminProfile, updateAdminPassword, getTodaySales, getNewOrdersToday, getTotalRevenue, getReviews } from '../controllers/adminController.js';
+import { getAdminStats, getAdminProfile, updateAdminProfile, updateAdminPassword, getTodaySales, getNewOrdersToday, getTotalRevenue, getReviews, getAdminLogs } from '../controllers/adminController.js';
 import { verifyToken, checkRole } from '../middleware/auth.js';
 const prisma = new PrismaClient();
 const router = Router();
@@ -35,5 +35,8 @@ router.get('/total-revenue', verifyToken, checkRole(['SuperAdmin', 'Editor']), g
 // GET /api/admin/reviews
 // Get reviews data (Admin only)
 router.get('/reviews', verifyToken, checkRole(['SuperAdmin', 'Editor']), getReviews);
+// GET /api/admin/logs
+// Get full admin logs / history (Admin only). Supports ?page=1&limit=20&module=&action=&startDate=&endDate=
+router.get('/logs', verifyToken, checkRole(['SuperAdmin', 'Editor']), getAdminLogs);
 export default router;
 //# sourceMappingURL=adminRoutes.js.map

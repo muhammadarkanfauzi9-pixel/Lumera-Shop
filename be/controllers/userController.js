@@ -53,6 +53,14 @@ export const loginUser = async (req, res) => {
         );
         // Kirim token dan data user (tanpa password)
         const { password: _, ...userData } = user;
+        // Set httpOnly cookie for user token
+        res.cookie('userToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/',
+        });
         res.status(200).json({
             token,
             user: userData,
@@ -71,12 +79,15 @@ export const updateUserProfile = async (req, res) => {
         return res.status(401).json({ message: 'User not authenticated.' });
     }
     try {
-        const updateData = {
-            name: name || undefined,
-            email: email || undefined,
-            phone: phone || undefined,
-            address: address || undefined,
-        };
+        const updateData = {};
+        if (name !== undefined)
+            updateData.name = name;
+        if (email !== undefined)
+            updateData.email = email;
+        if (phone !== undefined)
+            updateData.phone = phone;
+        if (address !== undefined)
+            updateData.address = address;
         // Handle file upload
         if (req.file) {
             const imagePath = `/uploads/${req.file.filename}`;
@@ -97,6 +108,60 @@ export const updateUserProfile = async (req, res) => {
             return res.status(400).json({ message: 'Email already exists.' });
         }
         res.status(500).json({ message: 'Failed to update profile.', error: error.message });
+    }
+};
+// 4. Get user balance (for QRIS simulation)
+export const getUserBalance = async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { balance: true },
+        });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        res.status(200).json({ balance: user.balance });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Failed to fetch balance.', error: error.message });
+    }
+};
+// 5. Update user balance (for QRIS simulation - deduct balance after payment)
+export const updateUserBalance = async (req, res) => {
+    const userId = req.user?.id;
+    const { amount } = req.body;
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+    if (typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount.' });
+    }
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { balance: true },
+        });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        if (user.balance < amount) {
+            return res.status(400).json({ message: 'Insufficient balance.' });
+        }
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { balance: user.balance - amount },
+        });
+        res.status(200).json({
+            message: 'Balance updated successfully',
+            balance: updatedUser.balance
+        });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Failed to update balance.', error: error.message });
     }
 };
 //# sourceMappingURL=userController.js.map
