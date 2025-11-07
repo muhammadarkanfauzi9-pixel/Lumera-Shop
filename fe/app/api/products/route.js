@@ -24,28 +24,49 @@ export async function POST(req) {
 
     // Handle image upload if present
     if (image && image.size > 0) {
-      // For now, we'll store the image URL as a placeholder
-      // In a real implementation, you'd upload to a cloud service or local storage
-      productData.imageUrl = `/uploads/${image.name}`;
+      // Create a new FormData to send the image to backend
+      const backendFormData = new FormData();
+      backendFormData.append('name', name);
+      backendFormData.append('price', price);
+      backendFormData.append('description', description);
+      backendFormData.append('stock', stock);
+      backendFormData.append('image', image);
+
+      // Send to backend API with FormData
+      const backendResponse = await fetch("http://localhost:5000/api/products", {
+        method: "POST",
+        headers: {
+          Authorization: authHeader,
+        },
+        body: backendFormData,
+      });
+
+      if (!backendResponse.ok) {
+        const error = await backendResponse.json();
+        return NextResponse.json({ message: error.message || "Failed to add product" }, { status: backendResponse.status });
+      }
+
+      const result = await backendResponse.json();
+      return NextResponse.json({ message: "Product added successfully", product: result.product });
+    } else {
+      // No image, send JSON data
+      const backendResponse = await fetch("http://localhost:5000/api/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authHeader,
+        },
+        body: JSON.stringify(productData),
+      });
+
+      if (!backendResponse.ok) {
+        const error = await backendResponse.json();
+        return NextResponse.json({ message: error.message || "Failed to add product" }, { status: backendResponse.status });
+      }
+
+      const result = await backendResponse.json();
+      return NextResponse.json({ message: "Product added successfully", product: result.product });
     }
-
-    // Send to backend API
-    const backendResponse = await fetch("http://localhost:5000/api/products", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authHeader,
-      },
-      body: JSON.stringify(productData),
-    });
-
-    if (!backendResponse.ok) {
-      const error = await backendResponse.json();
-      return NextResponse.json({ message: error.message || "Failed to add product" }, { status: backendResponse.status });
-    }
-
-    const result = await backendResponse.json();
-    return NextResponse.json({ message: "Product added successfully", product: result.product });
   } catch (error) {
     console.error("Error:", error);
     return NextResponse.json({ message: "Failed to add product" }, { status: 500 });

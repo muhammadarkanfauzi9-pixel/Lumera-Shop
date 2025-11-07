@@ -22,12 +22,17 @@ import { motion } from "framer-motion";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{
-    totalRevenue?: string;
-    totalOrders?: number;
+    totalUsers?: number;
     totalProducts?: number;
-    todaySales?: string;
+    totalOrders?: number;
+    totalRevenue?: number;
+    todaySales?: number;
     newOrdersToday?: number;
-    avgRating?: number;
+    ratingStats?: {
+      overallAverageRating: number;
+      totalRatings: number;
+      topRatedProducts: unknown[];
+    };
     monthlySales?: { month: string; sales: number }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +63,13 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+    }).format(amount);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -78,7 +90,7 @@ export default function AdminDashboardPage() {
   const dailyStats = [
     {
       title: "Today's Sales",
-      value: stats?.todaySales || "Rp 0",
+      value: stats?.todaySales ? formatCurrency(stats.todaySales) : "Rp 0",
       icon: <DollarSign size={26} />,
       color: "bg-blue-600 text-white",
       route: "/admin/today-sales",
@@ -110,7 +122,7 @@ export default function AdminDashboardPage() {
   const monthlyStats = [
     {
       title: "Total Revenue",
-      value: stats?.totalRevenue || "Rp 0",
+      value: stats?.totalRevenue ? formatCurrency(stats.totalRevenue) : "Rp 0",
       icon: <TrendingUp size={26} />,
       color: "bg-blue-100 text-blue-700 border-blue-200",
       route: "/admin/total-revenue",
@@ -138,28 +150,12 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // 📈 Data Chart Bulanan (real-time data from API)
-  const chartData = stats?.monthlySales || [
-    { month: "Jan", sales: 0 },
-    { month: "Feb", sales: 0 },
-    { month: "Mar", sales: 0 },
-    { month: "Apr", sales: 0 },
-    { month: "May", sales: 0 },
-    { month: "Jun", sales: 0 },
-    { month: "Jul", sales: 0 },
-    { month: "Aug", sales: 0 },
-  ];
-
   // ✨ Animasi dasar untuk kartu
   const cardAnimation = {
     hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: {
-        duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      },
     },
   };
 
@@ -273,7 +269,7 @@ export default function AdminDashboardPage() {
 
         <div className="h-72" style={{ minWidth: 0, minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
+            <BarChart data={stats?.monthlySales || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="month" stroke="#9ca3af" />
               <YAxis stroke="#9ca3af" />
