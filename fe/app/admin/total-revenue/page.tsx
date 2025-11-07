@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  DollarSign,
-  TrendingUp,
-  Calendar,
-  ArrowLeft,
-  BarChart3,
-} from "lucide-react";
+import { DollarSign, ArrowLeft, BarChart3 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   BarChart,
@@ -125,7 +119,7 @@ export default function TotalRevenuePage() {
       </div>
 
       {/* Total Revenue Card */}
-      <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+      <div className="bg-linear-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-green-100">Total Revenue</p>
@@ -180,7 +174,10 @@ export default function TotalRevenuePage() {
         </div>
 
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
+          {/* ResponsiveContainer may render with zero size if parent hasn't been laid out yet.
+              Using a fixed numeric height here avoids warnings about width/height <= 0.
+              You can also use an explicit style or minHeight on the parent instead. */}
+          <ResponsiveContainer width="100%" height={280}>
             {timeRange === "monthly" ? (
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />

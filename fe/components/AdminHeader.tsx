@@ -14,9 +14,8 @@ export default function AdminHeader() {
         if (!token) return;
 
         const response = await fetch("/api/admin/profile", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
         if (response.ok) {

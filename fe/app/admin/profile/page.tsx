@@ -91,7 +91,10 @@ export default function AdminProfilePage() {
         return;
       }
 
-      const response = await fetch("/api/admin/profile");
+      const response = await fetch("/api/admin/profile", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch admin profile");
@@ -120,7 +123,11 @@ export default function AdminProfilePage() {
       if (filters.startDate) params.set("startDate", filters.startDate);
       if (filters.endDate) params.set("endDate", filters.endDate);
 
-      const response = await fetch(`/api/admin/logs?${params.toString()}`);
+      const token = localStorage.getItem("adminToken");
+      const response = await fetch(`/api/admin/logs?${params.toString()}`, {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
       if (!response.ok) throw new Error("Failed to fetch logs");
 
@@ -148,7 +155,11 @@ export default function AdminProfilePage() {
       if (filters.startDate) params.set("startDate", filters.startDate);
       if (filters.endDate) params.set("endDate", filters.endDate);
 
-      const response = await fetch(`/api/admin/logs?${params.toString()}`);
+      const token = localStorage.getItem("adminToken");
+      const response = await fetch(`/api/admin/logs?${params.toString()}`, {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
       if (!response.ok) throw new Error("Failed to fetch logs for export");
 
@@ -214,10 +225,13 @@ export default function AdminProfilePage() {
 
     setUpdating(true);
     try {
+      const token = localStorage.getItem("adminToken");
       const response = await fetch("/api/admin/profile", {
         method: "PUT",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(updateForm),
       });

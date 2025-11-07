@@ -7,12 +7,14 @@ import {
   Package,
   LogOut,
   User as PersonStanding,
+  MessageSquare,
 } from "lucide-react";
 
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/admin" },
   { name: "Order", icon: ShoppingBag, path: "/admin/orders" },
   { name: "Product", icon: Package, path: "/admin/products" },
+  { name: "Reviews", icon: MessageSquare, path: "/admin/reviews" },
   { name: "Profile", icon: PersonStanding, path: "/admin/profile" },
   { name: "Logout", icon: LogOut, path: "/login" },
 ];

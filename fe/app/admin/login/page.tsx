@@ -196,12 +196,13 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/login`, {
+      const response = await fetch(`/api/admin/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
 
       const data = await response.json();
@@ -210,8 +211,8 @@ export default function AdminLoginPage() {
         throw new Error(data.message || "Login failed");
       }
 
-      // Store token
-      localStorage.setItem("adminToken", data.token);
+      // Store token (keep localStorage fallback)
+      if (data.token) localStorage.setItem("adminToken", data.token);
 
       // Store user data if available
       if (data.user) {

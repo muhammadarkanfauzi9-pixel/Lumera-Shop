@@ -89,11 +89,20 @@ export default function PaymentPage() {
     ];
     const paymentMethod = method === "qris" ? "QRIS" : "CASH";
 
+    // Get token from localStorage
+    const token = localStorage.getItem("userToken");
+    if (!token) {
+      alert("You must be logged in to place an order");
+      router.push("/login");
+      return;
+    }
+
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ items, paymentMethod }),
       });

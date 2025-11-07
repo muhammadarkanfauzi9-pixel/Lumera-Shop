@@ -40,10 +40,9 @@ export default function AdminDashboardPage() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("adminToken");
-      const response = await fetch("http://localhost:5000/api/admin/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch("/api/admin/stats", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (!response.ok) {
@@ -100,7 +99,7 @@ export default function AdminDashboardPage() {
     },
     {
       title: "Avg Rating",
-      value: `${stats?.avgRating || 4.9} ★`,
+      value: `${stats?.ratingStats?.overallAverageRating ?? 0} ★`,
       icon: <Star size={26} />,
       color: "bg-yellow-500 text-white",
       route: "/admin/reviews",
@@ -132,7 +131,7 @@ export default function AdminDashboardPage() {
     },
     {
       title: "Reviews Received",
-      value: "4.8 ★",
+      value: `${stats?.ratingStats?.totalRatings ?? 0} reviews`,
       icon: <Star size={26} />,
       color: "bg-yellow-100 text-yellow-700 border-yellow-200",
       route: "/admin/reviews",

@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Coffee, Cookie, Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 // Varian untuk animasi input (muncul berurutan)
 const itemVariants = {
@@ -27,9 +27,8 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
   title,
   isLogin,
 }) => {
-  const router = useRouter();
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F4E4BC] via-[#E6D7C3] to-[#D4AF37]/10 flex">
+    <div className="min-h-screen bg-linear-to-br from-[#F4E4BC] via-[#E6D7C3] to-[#D4AF37]/10 flex">
       {/* Left Side - Artistic Food Illustration */}
       <motion.div
         initial={{ x: -100, opacity: 0 }}
@@ -37,7 +36,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
         transition={{ duration: 0.8, delay: 0.2 }}
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#8B4513]/5 to-[#654321]/10"></div>
+        <div className="absolute inset-0 bg-linear-to-br from-[#8B4513]/5 to-[#654321]/10"></div>
 
         {/* Artistic Food Elements - Salty & Sweet Combination */}
         <div className="absolute top-16 left-12">
@@ -214,6 +213,16 @@ export default function LoginPage() {
       // Store token based on user type
       const tokenKey = data.user.type === "admin" ? "adminToken" : "userToken";
       localStorage.setItem(tokenKey, data.token);
+
+      // Also set a cookie (non-httpOnly) so server-side proxy routes that read cookies can work in dev.
+      // NOTE: For production/higher security, prefer httpOnly cookies set by the backend.
+      try {
+        const maxAge = 60 * 60 * 24 * 7; // 7 days
+        document.cookie = `${tokenKey}=${data.token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+      } catch (e) {
+        // document may not be available in SSR — this is a client component so should be fine
+        console.warn("Failed to set cookie for token", e);
+      }
 
       // Store user data
       if (data.user) {

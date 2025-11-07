@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = req.headers.get('authorization');
-    
+
     if (!authHeader) {
       return NextResponse.json(
         { message: 'No authorization token provided' },
@@ -12,9 +12,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const body = await req.json();
+    const { id } = await params;
 
     // Forward the request to the backend
-    const response = await fetch(`http://localhost:5000/api/orders/${params.id}/payment`, {
+    const response = await fetch(`http://localhost:5000/api/orders/${id}/payment`, {
       method: 'PUT',
       headers: {
         'Authorization': authHeader,

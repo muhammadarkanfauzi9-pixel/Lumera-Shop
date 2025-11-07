@@ -405,10 +405,6 @@ export default function HomePage() {
             transition={{ duration: 0.5, delay: 0.5 }}
             className="text-center mb-8"
           >
-            <p className="text-[#8B7355] text-base leading-relaxed">
-              {/* Greeting removed for logged-in users per request */}
-              {isLoggedIn ? null : <>Selamat datang wahai pengunjung! 👋</>}
-            </p>
           </motion.div>
 
           {/* Categories */}
@@ -416,7 +412,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="mt-12 pb-4"
+            className="mt-3 pb-4"
           >
             <div className="flex items-center justify-between mb-6 px-4">
               <h3 className="text-lg sm:text-xl font-bold text-[#2b1d1a]">
